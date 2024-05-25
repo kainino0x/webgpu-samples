@@ -13,6 +13,13 @@ fn main(
   // When viewed from the inside, cubemaps are left-handed (z away from viewer),
   // but common camera matrix convention results in a right-handed world space
   // (z toward viewer), so we have to flip it.
-  cubemapVec.z *= -1;
-  return textureSample(myTexture, mySampler, cubemapVec);
+  let p = normalize(cubemapVec);
+  //cubemapVec.z *= -1; // <----- not needed if we flip the world space
+  var ret = textureSample(myTexture, mySampler, cubemapVec);
+
+  // Solid = positive direction; ring = negative direction
+  if abs(p.x) > 0.75 && p.x > -0.76 { ret.r += 0.5; }
+  if abs(p.y) > 0.75 && p.y > -0.76 { ret.g += 0.5; }
+  if abs(p.z) > 0.75 && p.z > -0.76 { ret.b += 0.5; }
+  return ret;
 }
