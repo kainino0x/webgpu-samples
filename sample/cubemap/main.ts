@@ -190,7 +190,8 @@ const renderPassDescriptor: GPURenderPassDescriptor = {
   },
 };
 
-const aspect = canvas.width / canvas.height;
+let aspect = canvas.width / canvas.height;
+aspect = -aspect; // <----------------- flip world space handedness
 const projectionMatrix = mat4.perspective((2 * Math.PI) / 5, aspect, 1, 3000);
 
 const modelMatrix = mat4.scaling(vec3.fromValues(1000, 1000, 1000));
