@@ -6,6 +6,7 @@
     "outDir": "../out",
     "rootDir": "../",
     "moduleResolution": "Node",
+    "strict": true,
     "typeRoots": [
       "../node_modules/@webgpu/types",
       "../node_modules/@types",
