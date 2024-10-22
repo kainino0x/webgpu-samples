@@ -2717,6 +2717,7 @@ function quitIfWebGPUNotAvailable(adapter, device) {
     if (!device) {
         quitIfAdapterNotAvailable(adapter);
         fail('Unable to get a device for an unknown reason');
+        return;
     }
     device.lost.then((reason) => {
         fail(`Device lost ("${reason.reason}"):\n${reason.message}`);
@@ -2833,7 +2834,6 @@ const SampleInitFactoryWebGPU = async (callback) => {
         context.configure({
             device,
             format: presentationFormat,
-            alphaMode: 'premultiplied',
         });
         callback({
             canvas,

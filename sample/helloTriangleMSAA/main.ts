@@ -17,7 +17,6 @@ const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 context.configure({
   device,
   format: presentationFormat,
-  alphaMode: 'premultiplied',
 });
 
 const sampleCount = 4;
@@ -63,7 +62,7 @@ function frame() {
       {
         view,
         resolveTarget: context.getCurrentTexture().createView(),
-        clearValue: [0, 0, 0, 1],
+        clearValue: [0, 0, 0, 0], // Clear to transparent
         loadOp: 'clear',
         storeOp: 'discard',
       },

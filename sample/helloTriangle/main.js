@@ -34,6 +34,7 @@ function quitIfWebGPUNotAvailable(adapter, device) {
     if (!device) {
         quitIfAdapterNotAvailable(adapter);
         fail('Unable to get a device for an unknown reason');
+        return;
     }
     device.lost.then((reason) => {
         fail(`Device lost ("${reason.reason}"):\n${reason.message}`);
@@ -95,7 +96,6 @@ const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 context.configure({
     device,
     format: presentationFormat,
-    alphaMode: 'premultiplied',
 });
 const pipeline = device.createRenderPipeline({
     layout: 'auto',
@@ -125,7 +125,7 @@ function frame() {
         colorAttachments: [
             {
                 view: textureView,
-                clearValue: [0, 0, 0, 1],
+                clearValue: [0, 0, 0, 0], // Clear to transparent
                 loadOp: 'clear',
                 storeOp: 'store',
             },
