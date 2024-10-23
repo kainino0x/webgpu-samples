@@ -24,7 +24,7 @@ struct FragOut {
 
 @fragment
 fn fmain(vary: Varying) -> FragOut {
-  let mask = emulatedAlphaToCoverage(vary.color.a, u32(vary.pos.x), u32(vary.pos.y));
+  let mask = emulatedAlphaToCoverage(vary.color.a, vec2u(vary.pos.xy));
   return FragOut(vec4f(vary.color.rgb, 1.0), mask);
 }
 
