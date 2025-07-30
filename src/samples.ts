@@ -7,6 +7,7 @@ import bundleCulling from '../sample/bundleCulling/meta';
 import cameras from '../sample/cameras/meta';
 import clusteredShading from '../sample/clusteredShading/meta';
 import cornell from '../sample/cornell/meta';
+import compressedTextureFormatExplorer from '../sample/compressedTextureFormatExplorer/meta';
 import computeBoids from '../sample/computeBoids/meta';
 import cubemap from '../sample/cubemap/meta';
 import deferredRendering from '../sample/deferredRendering/meta';
@@ -97,6 +98,7 @@ export const pageCategories: PageCategory[] = [
       renderBundles,
       occlusionQuery,
       samplerParameters,
+      compressedTextureFormatExplorer,
       timestampQuery,
       blending,
     },

@@ -29,23 +29,20 @@ context.configure({
 const blurPipeline = device.createComputePipeline({
   layout: 'auto',
   compute: {
-    module: device.createShaderModule({
-      code: blurWGSL,
-    }),
+    module: device.createShaderModule({ code: blurWGSL }),
   },
 });
 
+const fullscreenQuadModule = device.createShaderModule({
+  code: fullscreenTexturedQuadWGSL,
+});
 const fullscreenQuadPipeline = device.createRenderPipeline({
   layout: 'auto',
   vertex: {
-    module: device.createShaderModule({
-      code: fullscreenTexturedQuadWGSL,
-    }),
+    module: fullscreenQuadModule,
   },
   fragment: {
-    module: device.createShaderModule({
-      code: fullscreenTexturedQuadWGSL,
-    }),
+    module: fullscreenQuadModule,
     targets: [
       {
         format: presentationFormat,
