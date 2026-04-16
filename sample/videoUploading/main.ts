@@ -20,13 +20,7 @@ const videos = {
     url: '../../assets/video/Video_360°._Timelapse._Bled_Lake_in_Slovenia..webm.720p.vp9.webm',
     mode: '360',
   },
-  webcam: {
-    url: '',
-    mode: 'cover',
-  },
 } as const;
-
-const videoinfo = document.getElementById('videoinfo') as HTMLPreElement;
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
 const context = canvas.getContext('webgpu');
@@ -96,21 +90,7 @@ let canReadVideo = false;
 
 async function playVideo(videoName: keyof typeof videos) {
   canReadVideo = false;
-
-  if (video.srcObject) {
-    (video.srcObject as MediaStream)
-      .getTracks()
-      .forEach((track) => track.stop());
-    video.srcObject = null;
-  }
-
-  if (videoName === 'webcam') {
-    video.srcObject = await navigator.mediaDevices.getUserMedia({
-      video: true,
-    });
-  } else {
-    video.src = videos[videoName].url;
-  }
+  video.src = videos[videoName].url;
   await video.play();
   canReadVideo = true;
 }
@@ -140,22 +120,8 @@ function drawVideo() {
   const maxSize = device.limits.maxTextureDimension2D;
   canvas.width = Math.min(Math.max(1, canvas.offsetWidth), maxSize);
   canvas.height = Math.min(Math.max(1, canvas.offsetHeight), maxSize);
-  const videoFrame =
-    settings.videoSource === 'videoFrame' ? new VideoFrame(video) : null;
-  const externalTextureSource = videoFrame ?? video;
-  videoinfo.textContent =
-    `HTMLVideoElement: ${video.videoWidth}x${video.videoHeight}` +
-    (videoFrame
-      ? '\nVideoFrame: ' +
-        JSON.stringify(
-          {
-            codedRect: videoFrame.codedRect,
-            visibleRect: videoFrame.visibleRect,
-          },
-          undefined,
-          2
-        )
-      : '');
+  const externalTextureSource =
+    settings.videoSource === 'videoFrame' ? new VideoFrame(video) : video;
 
   const mode = videos[settings.video].mode;
   const pipeline = mode === '360' ? video360Pipeline : videoCoverPipeline;
