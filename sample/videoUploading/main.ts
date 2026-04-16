@@ -26,6 +26,8 @@ const videos = {
   },
 } as const;
 
+const videoinfo = document.getElementById('videoinfo') as HTMLPreElement;
+
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
 const context = canvas.getContext('webgpu');
 const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
@@ -138,8 +140,22 @@ function drawVideo() {
   const maxSize = device.limits.maxTextureDimension2D;
   canvas.width = Math.min(Math.max(1, canvas.offsetWidth), maxSize);
   canvas.height = Math.min(Math.max(1, canvas.offsetHeight), maxSize);
-  const externalTextureSource =
-    settings.videoSource === 'videoFrame' ? new VideoFrame(video) : video;
+  const videoFrame =
+    settings.videoSource === 'videoFrame' ? new VideoFrame(video) : null;
+  const externalTextureSource = videoFrame ?? video;
+  videoinfo.textContent = `HTMLVideoElement: ${video.videoWidth}x${video.videoHeight}`;
+  if (videoFrame) {
+    videoinfo.textContent +=
+      '\nVideoFrame: ' +
+      JSON.stringify(
+        {
+          codedRect: videoFrame.codedRect,
+          visibleRect: videoFrame.visibleRect,
+        },
+        undefined,
+        2
+      );
+  }
 
   const mode = videos[settings.video].mode;
   const pipeline = mode === '360' ? video360Pipeline : videoCoverPipeline;
