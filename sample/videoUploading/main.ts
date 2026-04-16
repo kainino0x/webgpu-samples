@@ -20,6 +20,10 @@ const videos = {
     url: '../../assets/video/Video_360°._Timelapse._Bled_Lake_in_Slovenia..webm.720p.vp9.webm',
     mode: '360',
   },
+  webcam: {
+    url: '',
+    mode: 'mirror',
+  },
 } as const;
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
@@ -90,7 +94,21 @@ let canReadVideo = false;
 
 async function playVideo(videoName: keyof typeof videos) {
   canReadVideo = false;
-  video.src = videos[videoName].url;
+
+  if (video.srcObject) {
+    (video.srcObject as MediaStream)
+      .getTracks()
+      .forEach((track) => track.stop());
+    video.srcObject = null;
+  }
+
+  if (videoName === 'webcam') {
+    video.srcObject = await navigator.mediaDevices.getUserMedia({
+      video: true,
+    });
+  } else {
+    video.src = videos[videoName].url;
+  }
   await video.play();
   canReadVideo = true;
 }
@@ -182,6 +200,9 @@ function drawVideo() {
       combinedAspect > 1 ? [1 / combinedAspect, 1] : [1, combinedAspect],
       mat
     );
+    if (mode === 'mirror') {
+      mat3.scale(mat, [-1, 1], mat);
+    }
     mat3.translate(mat, [-0.5, -0.5], mat);
     device.queue.writeBuffer(uniformBuffer, 0, mat);
   }
