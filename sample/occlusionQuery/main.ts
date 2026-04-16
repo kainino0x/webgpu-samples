@@ -1,7 +1,7 @@
 import { GUI } from 'dat.gui';
 import { mat4 } from 'wgpu-matrix';
 import solidColorLitWGSL from './solidColorLit.wgsl';
-import { quitIfWebGPUNotAvailable } from '../util';
+import { quitIfWebGPUNotAvailableOrMissingFeatures } from '../util';
 
 const settings = {
   animate: true,
@@ -31,12 +31,14 @@ export type TypedArrayConstructor =
 
 const info = document.querySelector('#info');
 
-const adapter = await navigator.gpu?.requestAdapter();
+const adapter = await navigator.gpu?.requestAdapter({
+  featureLevel: 'compatibility',
+});
 const device = await adapter?.requestDevice();
-quitIfWebGPUNotAvailable(adapter, device);
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-const context = canvas.getContext('webgpu') as GPUCanvasContext;
+const context = canvas.getContext('webgpu');
 const devicePixelRatio = window.devicePixelRatio;
 canvas.width = canvas.clientWidth * devicePixelRatio;
 canvas.height = canvas.clientHeight * devicePixelRatio;
@@ -105,7 +107,7 @@ const objectInfos = cubePositions.map(({ position, id, color }) => {
 
   const bindGroup = device.createBindGroup({
     layout: pipeline.getBindGroupLayout(0),
-    entries: [{ binding: 0, resource: { buffer: uniformBuffer } }],
+    entries: [{ binding: 0, resource: uniformBuffer }],
   });
 
   return {
@@ -309,7 +311,7 @@ function render(now: number) {
   pass.end();
   encoder.resolveQuerySet(querySet, 0, objectInfos.length, resolveBuf, 0);
   if (resultBuf.mapState === 'unmapped') {
-    encoder.copyBufferToBuffer(resolveBuf, 0, resultBuf, 0, resultBuf.size);
+    encoder.copyBufferToBuffer(resolveBuf, resultBuf);
   }
 
   device.queue.submit([encoder.finish()]);

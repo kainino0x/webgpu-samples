@@ -1,13 +1,22 @@
+import { GUI } from 'dat.gui';
 import triangleVertWGSL from '../../shaders/triangle.vert.wgsl';
 import redFragWGSL from '../../shaders/red.frag.wgsl';
-import { quitIfWebGPUNotAvailable } from '../util';
+import { quitIfWebGPUNotAvailableOrMissingFeatures } from '../util';
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-const adapter = await navigator.gpu?.requestAdapter();
+const adapter = await navigator.gpu?.requestAdapter({
+  featureLevel: 'compatibility',
+});
 const device = await adapter?.requestDevice();
-quitIfWebGPUNotAvailable(adapter, device);
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
-const context = canvas.getContext('webgpu') as GPUCanvasContext;
+const settings = { transientAttachment: false };
+if ('TRANSIENT_ATTACHMENT' in GPUTextureUsage) {
+  const gui = new GUI();
+  gui.add(settings, 'transientAttachment');
+}
+
+const context = canvas.getContext('webgpu');
 
 const devicePixelRatio = window.devicePixelRatio;
 canvas.width = canvas.clientWidth * devicePixelRatio;
@@ -46,15 +55,20 @@ const pipeline = device.createRenderPipeline({
   },
 });
 
-const texture = device.createTexture({
-  size: [canvas.width, canvas.height],
-  sampleCount,
-  format: presentationFormat,
-  usage: GPUTextureUsage.RENDER_ATTACHMENT,
-});
-const view = texture.createView();
-
 function frame() {
+  let usage = GPUTextureUsage.RENDER_ATTACHMENT;
+  if (settings.transientAttachment) {
+    usage |= GPUTextureUsage.TRANSIENT_ATTACHMENT;
+  }
+
+  const texture = device.createTexture({
+    size: [canvas.width, canvas.height],
+    sampleCount,
+    format: presentationFormat,
+    usage,
+  });
+  const view = texture.createView();
+
   const commandEncoder = device.createCommandEncoder();
 
   const renderPassDescriptor: GPURenderPassDescriptor = {

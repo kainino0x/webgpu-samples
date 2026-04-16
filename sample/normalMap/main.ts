@@ -8,7 +8,7 @@ import {
   create3DRenderPipeline,
   createTextureFromImage,
 } from './utils';
-import { quitIfWebGPUNotAvailable } from '../util';
+import { quitIfWebGPUNotAvailableOrMissingFeatures } from '../util';
 
 const MAT4X4_BYTES = 64;
 enum TextureAtlas {
@@ -18,10 +18,12 @@ enum TextureAtlas {
 }
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-const adapter = await navigator.gpu?.requestAdapter();
+const adapter = await navigator.gpu?.requestAdapter({
+  featureLevel: 'compatibility',
+});
 const device = await adapter?.requestDevice();
-quitIfWebGPUNotAvailable(adapter, device);
-const context = canvas.getContext('webgpu') as GPUCanvasContext;
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
+const context = canvas.getContext('webgpu');
 const devicePixelRatio = window.devicePixelRatio;
 canvas.width = canvas.clientWidth * devicePixelRatio;
 canvas.height = canvas.clientHeight * devicePixelRatio;
@@ -327,11 +329,11 @@ function frame() {
   ]);
 
   // Update mapInfoBuffer
-  const lightPosWS = vec3.create(
+  const lightPosWS = [
     settings.lightPosX,
     settings.lightPosY,
-    settings.lightPosZ
-  );
+    settings.lightPosZ,
+  ];
   const lightPosVS = vec3.transformMat4(lightPosWS, viewMatrix);
   const mode = getMode();
   device.queue.writeBuffer(

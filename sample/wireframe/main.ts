@@ -4,7 +4,10 @@ import { modelData } from './models';
 import { randElement, randColor } from './utils';
 import solidColorLitWGSL from './solidColorLit.wgsl';
 import wireframeWGSL from './wireframe.wgsl';
-import { quitIfWebGPUNotAvailable } from '../util';
+import {
+  quitIfWebGPUNotAvailableOrMissingFeatures,
+  quitIfLimitLessThan,
+} from '../util';
 
 const settings = {
   barycentricCoordinatesBased: false,
@@ -61,12 +64,18 @@ function createVertexAndIndexBuffer(
   };
 }
 
-const adapter = await navigator.gpu?.requestAdapter();
-const device = await adapter?.requestDevice();
-quitIfWebGPUNotAvailable(adapter, device);
+const adapter = await navigator.gpu?.requestAdapter({
+  featureLevel: 'compatibility',
+});
+const limits: Record<string, GPUSize32> = {};
+quitIfLimitLessThan(adapter, 'maxStorageBuffersInVertexStage', 2, limits);
+const device = await adapter?.requestDevice({
+  requiredLimits: limits,
+});
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-const context = canvas.getContext('webgpu') as GPUCanvasContext;
+const context = canvas.getContext('webgpu');
 const devicePixelRatio = window.devicePixelRatio;
 canvas.width = canvas.clientWidth * devicePixelRatio;
 canvas.height = canvas.clientHeight * devicePixelRatio;
@@ -252,7 +261,7 @@ for (let i = 0; i < numObjects; ++i) {
   // Make a bind group for this uniform
   const litBindGroup = device.createBindGroup({
     layout: litBindGroupLayout,
-    entries: [{ binding: 0, resource: { buffer: uniformBuffer } }],
+    entries: [{ binding: 0, resource: uniformBuffer }],
   });
 
   // Note: We're making one lineUniformBuffer per object.
@@ -274,20 +283,20 @@ for (let i = 0; i < numObjects; ++i) {
   const wireframeBindGroup = device.createBindGroup({
     layout: wireframePipeline.getBindGroupLayout(0),
     entries: [
-      { binding: 0, resource: { buffer: uniformBuffer } },
-      { binding: 1, resource: { buffer: model.vertexBuffer } },
-      { binding: 2, resource: { buffer: model.indexBuffer } },
-      { binding: 3, resource: { buffer: lineUniformBuffer } },
+      { binding: 0, resource: uniformBuffer },
+      { binding: 1, resource: model.vertexBuffer },
+      { binding: 2, resource: model.indexBuffer },
+      { binding: 3, resource: lineUniformBuffer },
     ],
   });
 
   const barycentricCoordinatesBasedWireframeBindGroup = device.createBindGroup({
     layout: barycentricCoordinatesBasedWireframePipeline.getBindGroupLayout(0),
     entries: [
-      { binding: 0, resource: { buffer: uniformBuffer } },
-      { binding: 1, resource: { buffer: model.vertexBuffer } },
-      { binding: 2, resource: { buffer: model.indexBuffer } },
-      { binding: 3, resource: { buffer: lineUniformBuffer } },
+      { binding: 0, resource: uniformBuffer },
+      { binding: 1, resource: model.vertexBuffer },
+      { binding: 2, resource: model.indexBuffer },
+      { binding: 3, resource: lineUniformBuffer },
     ],
   });
 

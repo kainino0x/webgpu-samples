@@ -1,4 +1,4 @@
-import { mat4, vec3 } from 'wgpu-matrix';
+import { mat4 } from 'wgpu-matrix';
 
 import {
   cubeVertexArray,
@@ -11,14 +11,24 @@ import { MsdfTextRenderer } from './msdfText';
 
 import basicVertWGSL from '../../shaders/basic.vert.wgsl';
 import vertexPositionColorWGSL from '../../shaders/vertexPositionColor.frag.wgsl';
-import { quitIfWebGPUNotAvailable } from '../util';
+import {
+  quitIfWebGPUNotAvailableOrMissingFeatures,
+  quitIfLimitLessThan,
+} from '../util';
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-const adapter = await navigator.gpu?.requestAdapter();
-const device = await adapter?.requestDevice();
-quitIfWebGPUNotAvailable(adapter, device);
+const adapter = await navigator.gpu?.requestAdapter({
+  featureLevel: 'compatibility',
+});
+const limits: Record<string, GPUSize32> = {};
+quitIfLimitLessThan(adapter, 'maxStorageBuffersInFragmentStage', 1, limits);
+quitIfLimitLessThan(adapter, 'maxStorageBuffersInVertexStage', 2, limits);
+const device = await adapter?.requestDevice({
+  requiredLimits: limits,
+});
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
-const context = canvas.getContext('webgpu') as GPUCanvasContext;
+const context = canvas.getContext('webgpu');
 
 const devicePixelRatio = window.devicePixelRatio || 1;
 canvas.width = canvas.clientWidth * devicePixelRatio;
@@ -220,14 +230,7 @@ const uniformBuffer = device.createBuffer({
 
 const uniformBindGroup = device.createBindGroup({
   layout: pipeline.getBindGroupLayout(0),
-  entries: [
-    {
-      binding: 0,
-      resource: {
-        buffer: uniformBuffer,
-      },
-    },
-  ],
+  entries: [{ binding: 0, resource: uniformBuffer }],
 });
 
 const renderPassDescriptor: GPURenderPassDescriptor = {
@@ -257,16 +260,11 @@ const start = Date.now();
 function getTransformationMatrix() {
   const now = Date.now() / 5000;
   const viewMatrix = mat4.identity();
-  mat4.translate(viewMatrix, vec3.fromValues(0, 0, -5), viewMatrix);
+  mat4.translate(viewMatrix, [0, 0, -5], viewMatrix);
 
   const modelMatrix = mat4.identity();
-  mat4.translate(modelMatrix, vec3.fromValues(0, 2, -3), modelMatrix);
-  mat4.rotate(
-    modelMatrix,
-    vec3.fromValues(Math.sin(now), Math.cos(now), 0),
-    1,
-    modelMatrix
-  );
+  mat4.translate(modelMatrix, [0, 2, -3], modelMatrix);
+  mat4.rotate(modelMatrix, [Math.sin(now), Math.cos(now), 0], 1, modelMatrix);
 
   // Update the matrix for the cube
   mat4.multiply(projectionMatrix, viewMatrix, modelViewProjectionMatrix);

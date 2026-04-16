@@ -1,4 +1,4 @@
-/* wgpu-matrix@3.2.0, license MIT */
+/* wgpu-matrix@3.4.0, license MIT */
 function wrapConstructor(OriginalConstructor, modifier) {
     return class extends OriginalConstructor {
         constructor(...args) {
@@ -573,7 +573,7 @@ function getAPIImpl$5(Ctor) {
         return newDst;
     }
     /**
-     * transform Vec2 by 4x4 matrix
+     * Transform Vec2 by 4x4 matrix
      * @param v - the vector
      * @param m - The matrix.
      * @param dst - optional Vec2 to store result. If not passed a new one is created.
@@ -588,7 +588,7 @@ function getAPIImpl$5(Ctor) {
         return newDst;
     }
     /**
-     * Transforms vec4 by 3x3 matrix
+     * Transform Vec2 by 3x3 matrix
      *
      * @param v - the vector
      * @param m - The matrix.
@@ -1802,6 +1802,54 @@ function getAPIImpl$3(Ctor) {
         return newDst;
     }
     /**
+     * multiply a matrix by a scalar matrix.
+     * @param m - The matrix.
+     * @param s - the scalar
+     * @param dst - matrix to hold result. If not passed a new one is created.
+     * @returns m * s.
+     */
+    function multiplyScalar(m, s, dst) {
+        const newDst = (dst ?? new Ctor(12));
+        newDst[0] = m[0] * s;
+        newDst[1] = m[1] * s;
+        newDst[2] = m[2] * s;
+        newDst[4] = m[4] * s;
+        newDst[5] = m[5] * s;
+        newDst[6] = m[6] * s;
+        newDst[8] = m[8] * s;
+        newDst[9] = m[9] * s;
+        newDst[10] = m[10] * s;
+        return newDst;
+    }
+    /**
+     * multiply a matrix by a scalar matrix.
+     * @param m - The matrix.
+     * @param s - the scalar
+     * @param dst - matrix to hold result. If not passed a new one is created.
+     * @returns m * s.
+     */
+    const mulScalar = multiplyScalar;
+    /**
+     * add 2 matrices.
+     * @param a - matrix 1.
+     * @param b - matrix 2.
+     * @param dst - matrix to hold result. If not passed a new one is created.
+     * @returns a + b.
+     */
+    function add(a, b, dst) {
+        const newDst = (dst ?? new Ctor(12));
+        newDst[0] = a[0] + b[0];
+        newDst[1] = a[1] + b[1];
+        newDst[2] = a[2] + b[2];
+        newDst[4] = a[4] + b[4];
+        newDst[5] = a[5] + b[5];
+        newDst[6] = a[6] + b[6];
+        newDst[8] = a[8] + b[8];
+        newDst[9] = a[9] + b[9];
+        newDst[10] = a[10] + b[10];
+        return newDst;
+    }
+    /**
      * Copies a matrix. (same as {@link mat3.clone})
      * Also see {@link mat3.create} and {@link mat3.set}
      * @param m - The matrix.
@@ -2533,46 +2581,49 @@ function getAPIImpl$3(Ctor) {
         return newDst;
     }
     return {
+        add,
         clone,
+        copy,
         create,
-        set,
+        determinant,
+        equals,
+        equalsApproximately,
         fromMat4,
         fromQuat,
-        negate,
-        copy,
-        equalsApproximately,
-        equals,
+        get3DScaling,
+        getAxis,
+        getScaling,
+        getTranslation,
         identity,
-        transpose,
         inverse,
         invert,
-        determinant,
         mul,
+        mulScalar,
         multiply,
-        setTranslation,
-        getTranslation,
-        getAxis,
-        setAxis,
-        getScaling,
-        get3DScaling,
-        translation,
-        translate,
-        rotation,
+        multiplyScalar,
+        negate,
         rotate,
-        rotationX,
         rotateX,
-        rotationY,
         rotateY,
-        rotationZ,
         rotateZ,
-        scaling,
+        rotation,
+        rotationX,
+        rotationY,
+        rotationZ,
         scale,
-        uniformScaling,
-        uniformScale,
-        scaling3D,
         scale3D,
-        uniformScaling3D,
+        scaling,
+        scaling3D,
+        set,
+        setAxis,
+        setTranslation,
+        translate,
+        translation,
+        transpose,
+        uniformScale,
         uniformScale3D,
+        uniformScaling,
+        uniformScaling3D,
     };
 }
 const cache$3 = new Map();
@@ -2832,6 +2883,68 @@ function getAPIImpl$2(Ctor) {
         newDst[15] = -m[15];
         return newDst;
     }
+    /**
+     * add 2 matrices.
+     * @param a - matrix 1.
+     * @param b - matrix 2.
+     * @param dst - matrix to hold result. If not passed a new one is created.
+     * @returns a + b.
+     */
+    function add(a, b, dst) {
+        const newDst = (dst ?? new Ctor(16));
+        newDst[0] = a[0] + b[0];
+        newDst[1] = a[1] + b[1];
+        newDst[2] = a[2] + b[2];
+        newDst[3] = a[3] + b[3];
+        newDst[4] = a[4] + b[4];
+        newDst[5] = a[5] + b[5];
+        newDst[6] = a[6] + b[6];
+        newDst[7] = a[7] + b[7];
+        newDst[8] = a[8] + b[8];
+        newDst[9] = a[9] + b[9];
+        newDst[10] = a[10] + b[10];
+        newDst[11] = a[11] + b[11];
+        newDst[12] = a[12] + b[12];
+        newDst[13] = a[13] + b[13];
+        newDst[14] = a[14] + b[14];
+        newDst[15] = a[15] + b[15];
+        return newDst;
+    }
+    /**
+     * Multiplies a matrix by a scalar
+     * @param m - The matrix.
+     * @param s - The scalar
+     * @param dst - matrix to hold result. If not passed a new one is created.
+     * @returns m * s.
+     */
+    function multiplyScalar(m, s, dst) {
+        const newDst = (dst ?? new Ctor(16));
+        newDst[0] = m[0] * s;
+        newDst[1] = m[1] * s;
+        newDst[2] = m[2] * s;
+        newDst[3] = m[3] * s;
+        newDst[4] = m[4] * s;
+        newDst[5] = m[5] * s;
+        newDst[6] = m[6] * s;
+        newDst[7] = m[7] * s;
+        newDst[8] = m[8] * s;
+        newDst[9] = m[9] * s;
+        newDst[10] = m[10] * s;
+        newDst[11] = m[11] * s;
+        newDst[12] = m[12] * s;
+        newDst[13] = m[13] * s;
+        newDst[14] = m[14] * s;
+        newDst[15] = m[15] * s;
+        return newDst;
+    }
+    /**
+     * Multiplies a matrix by a scalar
+     * @param m - The matrix.
+     * @param s - The scalar
+     * @param dst - matrix to hold result. If not passed a new one is created.
+     * @returns m * s.
+     */
+    const mulScalar = multiplyScalar;
     /**
      * Copies a matrix. (same as {@link mat4.clone})
      * Also see {@link mat4.create} and {@link mat4.set}
@@ -4172,51 +4285,54 @@ function getAPIImpl$2(Ctor) {
         return newDst;
     }
     return {
+        add,
+        aim,
+        axisRotate,
+        axisRotation,
+        cameraAim,
+        clone,
+        copy,
         create,
-        set,
+        determinant,
+        equals,
+        equalsApproximately,
         fromMat3,
         fromQuat,
-        negate,
-        copy,
-        clone,
-        equalsApproximately,
-        equals,
-        identity,
-        transpose,
-        inverse,
-        determinant,
-        invert,
-        multiply,
-        mul,
-        setTranslation,
-        getTranslation,
-        getAxis,
-        setAxis,
-        getScaling,
-        perspective,
-        perspectiveReverseZ,
-        ortho,
         frustum,
         frustumReverseZ,
-        aim,
-        cameraAim,
+        getAxis,
+        getScaling,
+        getTranslation,
+        identity,
+        inverse,
+        invert,
         lookAt,
-        translation,
-        translate,
-        rotationX,
-        rotateX,
-        rotationY,
-        rotateY,
-        rotationZ,
-        rotateZ,
-        axisRotation,
-        rotation,
-        axisRotate,
+        mul,
+        mulScalar,
+        multiply,
+        multiplyScalar,
+        negate,
+        ortho,
+        perspective,
+        perspectiveReverseZ,
         rotate,
-        scaling,
+        rotateX,
+        rotateY,
+        rotateZ,
+        rotation,
+        rotationX,
+        rotationY,
+        rotationZ,
         scale,
-        uniformScaling,
+        scaling,
+        set,
+        setAxis,
+        setTranslation,
+        translate,
+        translation,
+        transpose,
         uniformScale,
+        uniformScaling,
     };
 }
 const cache$2 = new Map();
@@ -5717,35 +5833,10 @@ function wgpuMatrixAPI(Mat3Ctor, Mat4Ctor, QuatCtor, Vec2Ctor, Vec3Ctor, Vec4Cto
 }
 const { 
 /**
- * 3x3 Matrix functions that default to returning `Float32Array`
- * @namespace
- */
-mat3, 
-/**
  * 4x4 Matrix functions that default to returning `Float32Array`
  * @namespace
  */
-mat4, 
-/**
- * Quaternion functions that default to returning `Float32Array`
- * @namespace
- */
-quat, 
-/**
- * Vec2 functions that default to returning `Float32Array`
- * @namespace
- */
-vec2, 
-/**
- * Vec3 functions that default to returning `Float32Array`
- * @namespace
- */
-vec3, 
-/**
- * Vec3 functions that default to returning `Float32Array`
- * @namespace
- */
-vec4, } = wgpuMatrixAPI(Float32Array, Float32Array, Float32Array, Float32Array, Float32Array, Float32Array);
+mat4} = wgpuMatrixAPI(Float32Array, Float32Array, Float32Array, Float32Array, Float32Array, Float32Array);
 wgpuMatrixAPI(Float64Array, Float64Array, Float64Array, Float64Array, Float64Array, Float64Array);
 wgpuMatrixAPI(ZeroArray, Array, Array, Array, Array, Array);
 
@@ -8298,6 +8389,16 @@ fn fragment_main(
 }
 `;
 
+// Show an error dialog if there's any uncaught exception or promise rejection.
+// This gets set up on all pages that include util.ts.
+globalThis.addEventListener('unhandledrejection', (ev) => {
+    fail(`unhandled promise rejection, please report a bug!
+  https://github.com/webgpu/webgpu-samples/issues/new\n${ev.reason}`);
+});
+globalThis.addEventListener('error', (ev) => {
+    fail(`uncaught exception, please report a bug!
+  https://github.com/webgpu/webgpu-samples/issues/new\n${ev.error}`);
+});
 /** Shows an error dialog if getting an adapter wasn't successful. */
 function quitIfAdapterNotAvailable(adapter) {
     if (!('gpu' in navigator)) {
@@ -8307,11 +8408,100 @@ function quitIfAdapterNotAvailable(adapter) {
         fail("requestAdapter returned null - this sample can't run on this system");
     }
 }
+function supportsDirectBufferBinding(device) {
+    const buffer = device.createBuffer({
+        size: 16,
+        usage: GPUBufferUsage.UNIFORM,
+    });
+    const layout = device.createBindGroupLayout({
+        entries: [{ binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: {} }],
+    });
+    try {
+        device.createBindGroup({
+            layout,
+            entries: [{ binding: 0, resource: buffer }],
+        });
+        return true;
+    }
+    catch {
+        return false;
+    }
+    finally {
+        buffer.destroy();
+    }
+}
+function supportsDirectTextureBinding(device) {
+    const texture = device.createTexture({
+        size: [1],
+        usage: GPUTextureUsage.TEXTURE_BINDING,
+        format: 'rgba8unorm',
+    });
+    const layout = device.createBindGroupLayout({
+        entries: [{ binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: {} }],
+    });
+    try {
+        device.createBindGroup({
+            layout,
+            entries: [{ binding: 0, resource: texture }],
+        });
+        return true;
+    }
+    catch {
+        return false;
+    }
+    finally {
+        texture.destroy();
+    }
+}
+function supportsDirectTextureAttachments(device) {
+    const texture = device.createTexture({
+        size: [1],
+        usage: GPUTextureUsage.RENDER_ATTACHMENT,
+        format: 'rgba8unorm',
+        sampleCount: 4,
+    });
+    const resolveTarget = device.createTexture({
+        size: [1],
+        usage: GPUTextureUsage.RENDER_ATTACHMENT,
+        format: 'rgba8unorm',
+    });
+    const depthTexture = device.createTexture({
+        size: [1],
+        usage: GPUTextureUsage.RENDER_ATTACHMENT,
+        format: 'depth16unorm',
+        sampleCount: 4,
+    });
+    const encoder = device.createCommandEncoder();
+    try {
+        const pass = encoder.beginRenderPass({
+            colorAttachments: [
+                { view: texture, resolveTarget, loadOp: 'load', storeOp: 'store' },
+            ],
+            depthStencilAttachment: {
+                view: depthTexture,
+                depthLoadOp: 'load',
+                depthStoreOp: 'store',
+            },
+        });
+        pass.end();
+        return true;
+    }
+    catch (e) {
+        console.error(e);
+        return false;
+    }
+    finally {
+        encoder.finish();
+        texture.destroy();
+        resolveTarget.destroy();
+    }
+}
 /**
  * Shows an error dialog if getting a adapter or device wasn't successful,
- * or if/when the device is lost or has an uncaptured error.
+ * or if/when the device is lost or has an uncaptured error. Also checks
+ * for direct buffer binding, direct texture binding, and direct texture attachment binding.
  */
-function quitIfWebGPUNotAvailable(adapter, device) {
+function quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device) {
     if (!device) {
         quitIfAdapterNotAvailable(adapter);
         fail('Unable to get a device for an unknown reason');
@@ -8320,9 +8510,14 @@ function quitIfWebGPUNotAvailable(adapter, device) {
     device.lost.then((reason) => {
         fail(`Device lost ("${reason.reason}"):\n${reason.message}`);
     });
-    device.onuncapturederror = (ev) => {
+    device.addEventListener('uncapturederror', (ev) => {
         fail(`Uncaptured error:\n${ev.error.message}`);
-    };
+    });
+    if (!supportsDirectBufferBinding(device) ||
+        !supportsDirectTextureBinding(device) ||
+        !supportsDirectTextureAttachments(device)) {
+        fail('Core features of WebGPU are unavailable. Please update your browser to a newer version.');
+    }
 }
 /** Fail by showing a console error, and dialog box if possible. */
 const fail = (() => {
@@ -8366,19 +8561,57 @@ const fail = (() => {
 })();
 
 const canvas = document.querySelector('canvas');
+const status = document.getElementById('status');
 const gui = new GUI$1();
+const brainImages = {
+    r8unorm: {
+        bytesPerBlock: 1,
+        blockLength: 1,
+        feature: undefined,
+        dataPath: '../../assets/img/volume/t1_icbm_normal_1mm_pn0_rf0_180x216x180_uint8_1x1.bin-gz',
+    },
+    'bc4-r-unorm': {
+        bytesPerBlock: 8,
+        blockLength: 4,
+        feature: 'texture-compression-bc-sliced-3d',
+        dataPath: '../../assets/img/volume/t1_icbm_normal_1mm_pn0_rf0_180x216x180_bc4_4x4.bin-gz',
+        // Generated with texconv from https://github.com/microsoft/DirectXTex/releases
+    },
+    'astc-12x12-unorm': {
+        bytesPerBlock: 16,
+        blockLength: 12,
+        feature: 'texture-compression-astc-sliced-3d',
+        dataPath: '../../assets/img/volume/t1_icbm_normal_1mm_pn0_rf0_180x216x180_astc_12x12.bin-gz',
+        // Generated with astcenc from https://github.com/ARM-software/astc-encoder/releases
+    },
+};
 // GUI parameters
 const params = {
     rotateCamera: true,
-    near: 2.0,
-    far: 7.0,
+    near: 4.3,
+    far: 4.4,
+    textureFormat: 'r8unorm',
 };
 gui.add(params, 'rotateCamera', true);
 gui.add(params, 'near', 2.0, 7.0);
 gui.add(params, 'far', 2.0, 7.0);
-const adapter = await navigator.gpu?.requestAdapter();
-const device = await adapter?.requestDevice();
-quitIfWebGPUNotAvailable(adapter, device);
+gui
+    .add(params, 'textureFormat', Object.keys(brainImages))
+    .onChange(async () => {
+    await createVolumeTexture(params.textureFormat);
+});
+const adapter = await navigator.gpu?.requestAdapter({
+    featureLevel: 'compatibility',
+});
+const requiredFeatures = [];
+if (adapter?.features.has('texture-compression-bc-sliced-3d')) {
+    requiredFeatures.push('texture-compression-bc', 'texture-compression-bc-sliced-3d');
+}
+if (adapter?.features.has('texture-compression-astc-sliced-3d')) {
+    requiredFeatures.push('texture-compression-astc', 'texture-compression-astc-sliced-3d');
+}
+const device = await adapter?.requestDevice({ requiredFeatures });
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 const context = canvas.getContext('webgpu');
 const sampleCount = 4;
 const devicePixelRatio = window.devicePixelRatio;
@@ -8426,37 +8659,38 @@ const uniformBuffer = device.createBuffer({
     size: uniformBufferSize,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
 });
+let volumeTexture = null;
 // Fetch the image and upload it into a GPUTexture.
-let volumeTexture;
-{
+async function createVolumeTexture(format) {
+    volumeTexture = null;
+    const { blockLength, bytesPerBlock, dataPath, feature } = brainImages[format];
     const width = 180;
     const height = 216;
     const depth = 180;
-    const format = 'r8unorm';
-    const blockLength = 1;
-    const bytesPerBlock = 1;
     const blocksWide = Math.ceil(width / blockLength);
     const blocksHigh = Math.ceil(height / blockLength);
     const bytesPerRow = blocksWide * bytesPerBlock;
-    const dataPath = '../../assets/img/volume/t1_icbm_normal_1mm_pn0_rf0_180x216x180_uint8_1x1.bin-gz';
-    // Fetch the compressed data
+    if (feature && !device.features.has(feature)) {
+        status.textContent = `${feature} not supported`;
+        return;
+    }
+    else {
+        status.textContent = '';
+    }
     const response = await fetch(dataPath);
-    const compressedArrayBuffer = await response.arrayBuffer();
     // Decompress the data using DecompressionStream for gzip format
     const decompressionStream = new DecompressionStream('gzip');
-    const decompressedStream = new Response(compressedArrayBuffer).body.pipeThrough(decompressionStream);
+    const decompressedStream = response.body.pipeThrough(decompressionStream);
     const decompressedArrayBuffer = await new Response(decompressedStream).arrayBuffer();
-    const byteArray = new Uint8Array(decompressedArrayBuffer);
     volumeTexture = device.createTexture({
         dimension: '3d',
         size: [width, height, depth],
         format: format,
         usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
     });
-    device.queue.writeTexture({
-        texture: volumeTexture,
-    }, byteArray, { bytesPerRow: bytesPerRow, rowsPerImage: blocksHigh }, [width, height, depth]);
+    device.queue.writeTexture({ texture: volumeTexture }, decompressedArrayBuffer, { bytesPerRow: bytesPerRow, rowsPerImage: blocksHigh }, [width, height, depth]);
 }
+await createVolumeTexture(params.textureFormat);
 // Create a sampler with linear filtering for smooth interpolation.
 const sampler = device.createSampler({
     magFilter: 'linear',
@@ -8464,14 +8698,12 @@ const sampler = device.createSampler({
     mipmapFilter: 'linear',
     maxAnisotropy: 16,
 });
-const uniformBindGroup = device.createBindGroup({
+const bindGroupDescriptor = {
     layout: pipeline.getBindGroupLayout(0),
     entries: [
         {
             binding: 0,
-            resource: {
-                buffer: uniformBuffer,
-            },
+            resource: uniformBuffer,
         },
         {
             binding: 1,
@@ -8479,15 +8711,15 @@ const uniformBindGroup = device.createBindGroup({
         },
         {
             binding: 2,
-            resource: volumeTexture.createView(),
+            resource: undefined, // Assigned later
         },
     ],
-});
+};
 const renderPassDescriptor = {
     colorAttachments: [
         {
             view: undefined, // Assigned later
-            clearValue: [0.5, 0.5, 0.5, 1.0],
+            clearValue: [0, 0, 0, 1.0],
             loadOp: 'clear',
             storeOp: 'discard',
         },
@@ -8519,9 +8751,13 @@ function frame() {
         .createView();
     const commandEncoder = device.createCommandEncoder();
     const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
-    passEncoder.setPipeline(pipeline);
-    passEncoder.setBindGroup(0, uniformBindGroup);
-    passEncoder.draw(3);
+    if (volumeTexture) {
+        bindGroupDescriptor.entries[2].resource = volumeTexture.createView();
+        const uniformBindGroup = device.createBindGroup(bindGroupDescriptor);
+        passEncoder.setPipeline(pipeline);
+        passEncoder.setBindGroup(0, uniformBindGroup);
+        passEncoder.draw(3);
+    }
     passEncoder.end();
     device.queue.submit([commandEncoder.finish()]);
     requestAnimationFrame(frame);

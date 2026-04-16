@@ -1,7 +1,10 @@
 import { mat4, vec3 } from 'wgpu-matrix';
 import { GUI } from 'dat.gui';
 
-import { quitIfWebGPUNotAvailable } from '../util';
+import {
+  quitIfWebGPUNotAvailableOrMissingFeatures,
+  quitIfLimitLessThan,
+} from '../util';
 import { mesh } from '../../meshes/teapot';
 
 import opaqueWGSL from './opaque.wgsl';
@@ -13,11 +16,17 @@ function roundUp(n: number, k: number): number {
 }
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-const adapter = await navigator.gpu?.requestAdapter();
-const device = await adapter?.requestDevice();
-quitIfWebGPUNotAvailable(adapter, device);
+const adapter = await navigator.gpu?.requestAdapter({
+  featureLevel: 'compatibility',
+});
+const limits: Record<string, GPUSize32> = {};
+quitIfLimitLessThan(adapter, 'maxStorageBuffersInFragmentStage', 2, limits);
+const device = await adapter?.requestDevice({
+  requiredLimits: limits,
+});
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
-const context = canvas.getContext('webgpu') as GPUCanvasContext;
+const context = canvas.getContext('webgpu');
 const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 
 context.configure({
@@ -185,7 +194,7 @@ const translucentBindGroupLayout = device.createBindGroupLayout({
     {
       binding: 3,
       visibility: GPUShaderStage.FRAGMENT,
-      texture: { sampleType: 'depth' },
+      texture: { sampleType: 'unfilterable-float' },
     },
     {
       binding: 4,
@@ -442,24 +451,15 @@ const configure = () => {
     entries: [
       {
         binding: 0,
-        resource: {
-          buffer: uniformBuffer,
-          label: 'uniforms',
-        },
+        resource: uniformBuffer,
       },
       {
         binding: 1,
-        resource: {
-          buffer: headsBuffer,
-          label: 'headsBuffer',
-        },
+        resource: headsBuffer,
       },
       {
         binding: 2,
-        resource: {
-          buffer: linkedListBuffer,
-          label: 'linkedListBuffer',
-        },
+        resource: linkedListBuffer,
       },
       {
         binding: 3,
@@ -470,7 +470,6 @@ const configure = () => {
         resource: {
           buffer: sliceInfoBuffer,
           size: device.limits.minUniformBufferOffsetAlignment,
-          label: 'sliceInfoBuffer',
         },
       },
     ],
@@ -482,31 +481,21 @@ const configure = () => {
     entries: [
       {
         binding: 0,
-        resource: {
-          buffer: uniformBuffer,
-          label: 'uniforms',
-        },
+        resource: uniformBuffer,
       },
       {
         binding: 1,
-        resource: {
-          buffer: headsBuffer,
-          label: 'headsBuffer',
-        },
+        resource: headsBuffer,
       },
       {
         binding: 2,
-        resource: {
-          buffer: linkedListBuffer,
-          label: 'linkedListBuffer',
-        },
+        resource: linkedListBuffer,
       },
       {
         binding: 3,
         resource: {
           buffer: sliceInfoBuffer,
           size: device.limits.minUniformBufferOffsetAlignment,
-          label: 'sliceInfoBuffer',
         },
       },
     ],
@@ -525,9 +514,9 @@ const configure = () => {
       2000.0
     );
 
-    const upVector = vec3.fromValues(0, 1, 0);
-    const origin = vec3.fromValues(0, 0, 0);
-    const eyePosition = vec3.fromValues(0, 5, -100);
+    const upVector = [0, 1, 0];
+    const origin = [0, 0, 0];
+    const eyePosition = [0, 5, -100];
 
     const rad = Math.PI * (Date.now() / 5000);
     const rotation = mat4.rotateY(mat4.translation(origin), rad);
@@ -569,13 +558,7 @@ const configure = () => {
 
     for (let slice = 0; slice < numSlices; ++slice) {
       // initialize the heads buffer
-      commandEncoder.copyBufferToBuffer(
-        headsInitBuffer,
-        0,
-        headsBuffer,
-        0,
-        headsInitBuffer.size
-      );
+      commandEncoder.copyBufferToBuffer(headsInitBuffer, headsBuffer);
 
       const scissorX = 0;
       const scissorY = slice * sliceHeight;

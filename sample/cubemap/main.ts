@@ -1,23 +1,16 @@
-import { mat4, vec3 } from 'wgpu-matrix';
+import { mat4 } from 'wgpu-matrix';
 
-import {
-  cubeVertexArray,
-  cubeVertexSize,
-  cubeUVOffset,
-  cubePositionOffset,
-  cubeVertexCount,
-} from '../../meshes/cube';
-
-import basicVertWGSL from '../../shaders/basic.vert.wgsl';
-import sampleCubemapWGSL from './sampleCubemap.frag.wgsl';
-import { quitIfWebGPUNotAvailable } from '../util';
+import sampleCubemapWGSL from './sampleCubemap.wgsl';
+import { quitIfWebGPUNotAvailableOrMissingFeatures } from '../util';
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-const adapter = await navigator.gpu?.requestAdapter();
+const adapter = await navigator.gpu?.requestAdapter({
+  featureLevel: 'compatibility',
+});
 const device = await adapter?.requestDevice();
-quitIfWebGPUNotAvailable(adapter, device);
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
-const context = canvas.getContext('webgpu') as GPUCanvasContext;
+const context = canvas.getContext('webgpu');
 
 const devicePixelRatio = window.devicePixelRatio;
 canvas.width = canvas.clientWidth * devicePixelRatio;
@@ -29,73 +22,18 @@ context.configure({
   format: presentationFormat,
 });
 
-// Create a vertex buffer from the cube data.
-const verticesBuffer = device.createBuffer({
-  size: cubeVertexArray.byteLength,
-  usage: GPUBufferUsage.VERTEX,
-  mappedAtCreation: true,
-});
-new Float32Array(verticesBuffer.getMappedRange()).set(cubeVertexArray);
-verticesBuffer.unmap();
-
+const module = device.createShaderModule({ code: sampleCubemapWGSL });
 const pipeline = device.createRenderPipeline({
   layout: 'auto',
-  vertex: {
-    module: device.createShaderModule({
-      code: basicVertWGSL,
-    }),
-    buffers: [
-      {
-        arrayStride: cubeVertexSize,
-        attributes: [
-          {
-            // position
-            shaderLocation: 0,
-            offset: cubePositionOffset,
-            format: 'float32x4',
-          },
-          {
-            // uv
-            shaderLocation: 1,
-            offset: cubeUVOffset,
-            format: 'float32x2',
-          },
-        ],
-      },
-    ],
-  },
+  vertex: { module },
   fragment: {
-    module: device.createShaderModule({
-      code: sampleCubemapWGSL,
-    }),
+    module,
     targets: [
       {
         format: presentationFormat,
       },
     ],
   },
-  primitive: {
-    topology: 'triangle-list',
-
-    // Since we are seeing from inside of the cube
-    // and we are using the regular cube geomtry data with outward-facing normals,
-    // the cullMode should be 'front' or 'none'.
-    cullMode: 'none',
-  },
-
-  // Enable depth testing so that the fragment closest to the camera
-  // is rendered in front.
-  depthStencil: {
-    depthWriteEnabled: true,
-    depthCompare: 'less',
-    format: 'depth24plus',
-  },
-});
-
-const depthTexture = device.createTexture({
-  size: [canvas.width, canvas.height],
-  format: 'depth24plus',
-  usage: GPUTextureUsage.RENDER_ATTACHMENT,
 });
 
 // Fetch the 6 separate images for negative/positive x, y, z axis of a cubemap
@@ -119,6 +57,7 @@ let cubemapTexture: GPUTexture;
 
   cubemapTexture = device.createTexture({
     dimension: '2d',
+    textureBindingViewDimension: 'cube',
     // Create a 2d array texture.
     // Assume each image has the same size.
     size: [imageBitmaps[0].width, imageBitmaps[0].height, 6],
@@ -155,11 +94,7 @@ const uniformBindGroup = device.createBindGroup({
   entries: [
     {
       binding: 0,
-      resource: {
-        buffer: uniformBuffer,
-        offset: 0,
-        size: uniformBufferSize,
-      },
+      resource: uniformBuffer,
     },
     {
       binding: 1,
@@ -182,42 +117,34 @@ const renderPassDescriptor: GPURenderPassDescriptor = {
       storeOp: 'store',
     },
   ],
-  depthStencilAttachment: {
-    view: depthTexture.createView(),
-
-    depthClearValue: 1.0,
-    depthLoadOp: 'clear',
-    depthStoreOp: 'store',
-  },
 };
 
 const aspect = canvas.width / canvas.height;
 const projectionMatrix = mat4.perspective((2 * Math.PI) / 5, aspect, 1, 3000);
 
-const modelMatrix = mat4.scaling(vec3.fromValues(1000, 1000, 1000));
-const modelViewProjectionMatrix = mat4.create();
+const modelMatrix = mat4.identity();
+const modelViewProjectionInverseMatrix = mat4.create();
 const viewMatrix = mat4.identity();
 
 const tmpMat4 = mat4.create();
 
-// Comppute camera movement:
+// Compute camera movement:
 // It rotates around Y axis with a slight pitch movement.
 function updateTransformationMatrix() {
   const now = Date.now() / 800;
 
-  mat4.rotate(
-    viewMatrix,
-    vec3.fromValues(1, 0, 0),
-    (Math.PI / 10) * Math.sin(now),
-    tmpMat4
-  );
-  mat4.rotate(tmpMat4, vec3.fromValues(0, 1, 0), now * 0.2, tmpMat4);
+  mat4.rotate(viewMatrix, [1, 0, 0], (Math.PI / 10) * Math.sin(now), tmpMat4);
+  mat4.rotate(tmpMat4, [0, 1, 0], now * 0.2, tmpMat4);
 
-  mat4.multiply(tmpMat4, modelMatrix, modelViewProjectionMatrix);
+  mat4.multiply(tmpMat4, modelMatrix, modelViewProjectionInverseMatrix);
   mat4.multiply(
     projectionMatrix,
-    modelViewProjectionMatrix,
-    modelViewProjectionMatrix
+    modelViewProjectionInverseMatrix,
+    modelViewProjectionInverseMatrix
+  );
+  mat4.inverse(
+    modelViewProjectionInverseMatrix,
+    modelViewProjectionInverseMatrix
   );
 }
 
@@ -226,9 +153,9 @@ function frame() {
   device.queue.writeBuffer(
     uniformBuffer,
     0,
-    modelViewProjectionMatrix.buffer,
-    modelViewProjectionMatrix.byteOffset,
-    modelViewProjectionMatrix.byteLength
+    modelViewProjectionInverseMatrix.buffer,
+    modelViewProjectionInverseMatrix.byteOffset,
+    modelViewProjectionInverseMatrix.byteLength
   );
 
   renderPassDescriptor.colorAttachments[0].view = context
@@ -238,9 +165,8 @@ function frame() {
   const commandEncoder = device.createCommandEncoder();
   const passEncoder = commandEncoder.beginRenderPass(renderPassDescriptor);
   passEncoder.setPipeline(pipeline);
-  passEncoder.setVertexBuffer(0, verticesBuffer);
   passEncoder.setBindGroup(0, uniformBindGroup);
-  passEncoder.draw(cubeVertexCount);
+  passEncoder.draw(3);
   passEncoder.end();
   device.queue.submit([commandEncoder.finish()]);
 

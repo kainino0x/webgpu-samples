@@ -2490,7 +2490,7 @@ function updateDisplays(controllerArray) {
 }
 var GUI$1 = GUI;
 
-/* wgpu-matrix@3.2.0, license MIT */
+/* wgpu-matrix@3.4.0, license MIT */
 function wrapConstructor(OriginalConstructor, modifier) {
     return class extends OriginalConstructor {
         constructor(...args) {
@@ -3065,7 +3065,7 @@ function getAPIImpl$5(Ctor) {
         return newDst;
     }
     /**
-     * transform Vec2 by 4x4 matrix
+     * Transform Vec2 by 4x4 matrix
      * @param v - the vector
      * @param m - The matrix.
      * @param dst - optional Vec2 to store result. If not passed a new one is created.
@@ -3080,7 +3080,7 @@ function getAPIImpl$5(Ctor) {
         return newDst;
     }
     /**
-     * Transforms vec4 by 3x3 matrix
+     * Transform Vec2 by 3x3 matrix
      *
      * @param v - the vector
      * @param m - The matrix.
@@ -4294,6 +4294,54 @@ function getAPIImpl$3(Ctor) {
         return newDst;
     }
     /**
+     * multiply a matrix by a scalar matrix.
+     * @param m - The matrix.
+     * @param s - the scalar
+     * @param dst - matrix to hold result. If not passed a new one is created.
+     * @returns m * s.
+     */
+    function multiplyScalar(m, s, dst) {
+        const newDst = (dst ?? new Ctor(12));
+        newDst[0] = m[0] * s;
+        newDst[1] = m[1] * s;
+        newDst[2] = m[2] * s;
+        newDst[4] = m[4] * s;
+        newDst[5] = m[5] * s;
+        newDst[6] = m[6] * s;
+        newDst[8] = m[8] * s;
+        newDst[9] = m[9] * s;
+        newDst[10] = m[10] * s;
+        return newDst;
+    }
+    /**
+     * multiply a matrix by a scalar matrix.
+     * @param m - The matrix.
+     * @param s - the scalar
+     * @param dst - matrix to hold result. If not passed a new one is created.
+     * @returns m * s.
+     */
+    const mulScalar = multiplyScalar;
+    /**
+     * add 2 matrices.
+     * @param a - matrix 1.
+     * @param b - matrix 2.
+     * @param dst - matrix to hold result. If not passed a new one is created.
+     * @returns a + b.
+     */
+    function add(a, b, dst) {
+        const newDst = (dst ?? new Ctor(12));
+        newDst[0] = a[0] + b[0];
+        newDst[1] = a[1] + b[1];
+        newDst[2] = a[2] + b[2];
+        newDst[4] = a[4] + b[4];
+        newDst[5] = a[5] + b[5];
+        newDst[6] = a[6] + b[6];
+        newDst[8] = a[8] + b[8];
+        newDst[9] = a[9] + b[9];
+        newDst[10] = a[10] + b[10];
+        return newDst;
+    }
+    /**
      * Copies a matrix. (same as {@link mat3.clone})
      * Also see {@link mat3.create} and {@link mat3.set}
      * @param m - The matrix.
@@ -5025,46 +5073,49 @@ function getAPIImpl$3(Ctor) {
         return newDst;
     }
     return {
+        add,
         clone,
+        copy,
         create,
-        set,
+        determinant,
+        equals,
+        equalsApproximately,
         fromMat4,
         fromQuat,
-        negate,
-        copy,
-        equalsApproximately,
-        equals,
+        get3DScaling,
+        getAxis,
+        getScaling,
+        getTranslation,
         identity,
-        transpose,
         inverse,
         invert,
-        determinant,
         mul,
+        mulScalar,
         multiply,
-        setTranslation,
-        getTranslation,
-        getAxis,
-        setAxis,
-        getScaling,
-        get3DScaling,
-        translation,
-        translate,
-        rotation,
+        multiplyScalar,
+        negate,
         rotate,
-        rotationX,
         rotateX,
-        rotationY,
         rotateY,
-        rotationZ,
         rotateZ,
-        scaling,
+        rotation,
+        rotationX,
+        rotationY,
+        rotationZ,
         scale,
-        uniformScaling,
-        uniformScale,
-        scaling3D,
         scale3D,
-        uniformScaling3D,
+        scaling,
+        scaling3D,
+        set,
+        setAxis,
+        setTranslation,
+        translate,
+        translation,
+        transpose,
+        uniformScale,
         uniformScale3D,
+        uniformScaling,
+        uniformScaling3D,
     };
 }
 const cache$3 = new Map();
@@ -5324,6 +5375,68 @@ function getAPIImpl$2(Ctor) {
         newDst[15] = -m[15];
         return newDst;
     }
+    /**
+     * add 2 matrices.
+     * @param a - matrix 1.
+     * @param b - matrix 2.
+     * @param dst - matrix to hold result. If not passed a new one is created.
+     * @returns a + b.
+     */
+    function add(a, b, dst) {
+        const newDst = (dst ?? new Ctor(16));
+        newDst[0] = a[0] + b[0];
+        newDst[1] = a[1] + b[1];
+        newDst[2] = a[2] + b[2];
+        newDst[3] = a[3] + b[3];
+        newDst[4] = a[4] + b[4];
+        newDst[5] = a[5] + b[5];
+        newDst[6] = a[6] + b[6];
+        newDst[7] = a[7] + b[7];
+        newDst[8] = a[8] + b[8];
+        newDst[9] = a[9] + b[9];
+        newDst[10] = a[10] + b[10];
+        newDst[11] = a[11] + b[11];
+        newDst[12] = a[12] + b[12];
+        newDst[13] = a[13] + b[13];
+        newDst[14] = a[14] + b[14];
+        newDst[15] = a[15] + b[15];
+        return newDst;
+    }
+    /**
+     * Multiplies a matrix by a scalar
+     * @param m - The matrix.
+     * @param s - The scalar
+     * @param dst - matrix to hold result. If not passed a new one is created.
+     * @returns m * s.
+     */
+    function multiplyScalar(m, s, dst) {
+        const newDst = (dst ?? new Ctor(16));
+        newDst[0] = m[0] * s;
+        newDst[1] = m[1] * s;
+        newDst[2] = m[2] * s;
+        newDst[3] = m[3] * s;
+        newDst[4] = m[4] * s;
+        newDst[5] = m[5] * s;
+        newDst[6] = m[6] * s;
+        newDst[7] = m[7] * s;
+        newDst[8] = m[8] * s;
+        newDst[9] = m[9] * s;
+        newDst[10] = m[10] * s;
+        newDst[11] = m[11] * s;
+        newDst[12] = m[12] * s;
+        newDst[13] = m[13] * s;
+        newDst[14] = m[14] * s;
+        newDst[15] = m[15] * s;
+        return newDst;
+    }
+    /**
+     * Multiplies a matrix by a scalar
+     * @param m - The matrix.
+     * @param s - The scalar
+     * @param dst - matrix to hold result. If not passed a new one is created.
+     * @returns m * s.
+     */
+    const mulScalar = multiplyScalar;
     /**
      * Copies a matrix. (same as {@link mat4.clone})
      * Also see {@link mat4.create} and {@link mat4.set}
@@ -6664,51 +6777,54 @@ function getAPIImpl$2(Ctor) {
         return newDst;
     }
     return {
+        add,
+        aim,
+        axisRotate,
+        axisRotation,
+        cameraAim,
+        clone,
+        copy,
         create,
-        set,
+        determinant,
+        equals,
+        equalsApproximately,
         fromMat3,
         fromQuat,
-        negate,
-        copy,
-        clone,
-        equalsApproximately,
-        equals,
-        identity,
-        transpose,
-        inverse,
-        determinant,
-        invert,
-        multiply,
-        mul,
-        setTranslation,
-        getTranslation,
-        getAxis,
-        setAxis,
-        getScaling,
-        perspective,
-        perspectiveReverseZ,
-        ortho,
         frustum,
         frustumReverseZ,
-        aim,
-        cameraAim,
+        getAxis,
+        getScaling,
+        getTranslation,
+        identity,
+        inverse,
+        invert,
         lookAt,
-        translation,
-        translate,
-        rotationX,
-        rotateX,
-        rotationY,
-        rotateY,
-        rotationZ,
-        rotateZ,
-        axisRotation,
-        rotation,
-        axisRotate,
+        mul,
+        mulScalar,
+        multiply,
+        multiplyScalar,
+        negate,
+        ortho,
+        perspective,
+        perspectiveReverseZ,
         rotate,
-        scaling,
+        rotateX,
+        rotateY,
+        rotateZ,
+        rotation,
+        rotationX,
+        rotationY,
+        rotationZ,
         scale,
-        uniformScaling,
+        scaling,
+        set,
+        setAxis,
+        setTranslation,
+        translate,
+        translation,
+        transpose,
         uniformScale,
+        uniformScaling,
     };
 }
 const cache$2 = new Map();
@@ -8209,35 +8325,15 @@ function wgpuMatrixAPI(Mat3Ctor, Mat4Ctor, QuatCtor, Vec2Ctor, Vec3Ctor, Vec4Cto
 }
 const { 
 /**
- * 3x3 Matrix functions that default to returning `Float32Array`
- * @namespace
- */
-mat3, 
-/**
  * 4x4 Matrix functions that default to returning `Float32Array`
  * @namespace
  */
 mat4, 
 /**
- * Quaternion functions that default to returning `Float32Array`
- * @namespace
- */
-quat, 
-/**
- * Vec2 functions that default to returning `Float32Array`
- * @namespace
- */
-vec2, 
-/**
  * Vec3 functions that default to returning `Float32Array`
  * @namespace
  */
-vec3, 
-/**
- * Vec3 functions that default to returning `Float32Array`
- * @namespace
- */
-vec4, } = wgpuMatrixAPI(Float32Array, Float32Array, Float32Array, Float32Array, Float32Array, Float32Array);
+vec3} = wgpuMatrixAPI(Float32Array, Float32Array, Float32Array, Float32Array, Float32Array, Float32Array);
 wgpuMatrixAPI(Float64Array, Float64Array, Float64Array, Float64Array, Float64Array, Float64Array);
 wgpuMatrixAPI(ZeroArray, Array, Array, Array, Array, Array);
 
@@ -8616,7 +8712,7 @@ fn raytrace(ray : Ray) -> HitInfo {
   return hit;
 }
 
-// A psuedo random number. Initialized with init_rand(), updated with rand().
+// A pseudo random number. Initialized with init_rand(), updated with rand().
 var<private> rnd : vec3u;
 
 // Initializes the random number generator.
@@ -8726,20 +8822,12 @@ class Common {
                 {
                     // common_uniforms
                     binding: 0,
-                    resource: {
-                        buffer: this.uniformBuffer,
-                        offset: 0,
-                        size: this.uniformBuffer.size,
-                    },
+                    resource: this.uniformBuffer,
                 },
                 {
                     // quads
                     binding: 1,
-                    resource: {
-                        buffer: quads,
-                        offset: 0,
-                        size: quads.size,
-                    },
+                    resource: quads,
                 },
             ],
         });
@@ -8749,7 +8837,7 @@ class Common {
     update(params) {
         const projectionMatrix = mat4.perspective((2 * Math.PI) / 8, params.aspect, 0.5, 100);
         const viewRotation = params.rotateCamera ? this.frame / 1000 : 0;
-        const viewMatrix = mat4.lookAt(vec3.fromValues(Math.sin(viewRotation) * 15, 5, Math.cos(viewRotation) * 15), vec3.fromValues(0, 5, 0), vec3.fromValues(0, 1, 0));
+        const viewMatrix = mat4.lookAt([Math.sin(viewRotation) * 15, 5, Math.cos(viewRotation) * 15], [0, 5, 0], [0, 1, 0]);
         const mvp = mat4.multiply(projectionMatrix, viewMatrix);
         const invMVP = mat4.invert(mvp);
         const uniformDataF32 = new Float32Array(this.uniformBuffer.size / 4);
@@ -9009,10 +9097,7 @@ class Radiosity {
                 {
                     // accumulation buffer
                     binding: 0,
-                    resource: {
-                        buffer: this.accumulationBuffer,
-                        size: this.accumulationBuffer.size,
-                    },
+                    resource: this.accumulationBuffer,
                 },
                 {
                     // lightmap
@@ -9022,10 +9107,7 @@ class Radiosity {
                 {
                     // radiosity_uniforms
                     binding: 2,
-                    resource: {
-                        buffer: this.uniformBuffer,
-                        size: this.uniformBuffer.size,
-                    },
+                    resource: this.uniformBuffer,
                 },
             ],
         });
@@ -9112,7 +9194,7 @@ struct VertexOut {
   @builtin(position) position : vec4f,
   @location(0) uv : vec2f,
   @location(1) emissive : vec3f,
-  @interpolate(flat)
+  @interpolate(flat, either)
   @location(2) quad : u32,
 }
 
@@ -9507,6 +9589,16 @@ class Raytracer {
     }
 }
 
+// Show an error dialog if there's any uncaught exception or promise rejection.
+// This gets set up on all pages that include util.ts.
+globalThis.addEventListener('unhandledrejection', (ev) => {
+    fail(`unhandled promise rejection, please report a bug!
+  https://github.com/webgpu/webgpu-samples/issues/new\n${ev.reason}`);
+});
+globalThis.addEventListener('error', (ev) => {
+    fail(`uncaught exception, please report a bug!
+  https://github.com/webgpu/webgpu-samples/issues/new\n${ev.error}`);
+});
 /** Shows an error dialog if getting an adapter wasn't successful. */
 function quitIfAdapterNotAvailable(adapter) {
     if (!('gpu' in navigator)) {
@@ -9516,11 +9608,110 @@ function quitIfAdapterNotAvailable(adapter) {
         fail("requestAdapter returned null - this sample can't run on this system");
     }
 }
+function quitIfLimitLessThan(adapter, limit, requiredValue, limits) {
+    if (limit in adapter.limits) {
+        const limitKey = limit;
+        const limitValue = adapter.limits[limitKey];
+        if (limitValue < requiredValue) {
+            fail(`This sample can't run on this system. ${limit} is ${limitValue}, and this sample requires at least ${requiredValue}.`);
+        }
+        limits[limit] = requiredValue;
+    }
+}
+function supportsDirectBufferBinding(device) {
+    const buffer = device.createBuffer({
+        size: 16,
+        usage: GPUBufferUsage.UNIFORM,
+    });
+    const layout = device.createBindGroupLayout({
+        entries: [{ binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: {} }],
+    });
+    try {
+        device.createBindGroup({
+            layout,
+            entries: [{ binding: 0, resource: buffer }],
+        });
+        return true;
+    }
+    catch {
+        return false;
+    }
+    finally {
+        buffer.destroy();
+    }
+}
+function supportsDirectTextureBinding(device) {
+    const texture = device.createTexture({
+        size: [1],
+        usage: GPUTextureUsage.TEXTURE_BINDING,
+        format: 'rgba8unorm',
+    });
+    const layout = device.createBindGroupLayout({
+        entries: [{ binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: {} }],
+    });
+    try {
+        device.createBindGroup({
+            layout,
+            entries: [{ binding: 0, resource: texture }],
+        });
+        return true;
+    }
+    catch {
+        return false;
+    }
+    finally {
+        texture.destroy();
+    }
+}
+function supportsDirectTextureAttachments(device) {
+    const texture = device.createTexture({
+        size: [1],
+        usage: GPUTextureUsage.RENDER_ATTACHMENT,
+        format: 'rgba8unorm',
+        sampleCount: 4,
+    });
+    const resolveTarget = device.createTexture({
+        size: [1],
+        usage: GPUTextureUsage.RENDER_ATTACHMENT,
+        format: 'rgba8unorm',
+    });
+    const depthTexture = device.createTexture({
+        size: [1],
+        usage: GPUTextureUsage.RENDER_ATTACHMENT,
+        format: 'depth16unorm',
+        sampleCount: 4,
+    });
+    const encoder = device.createCommandEncoder();
+    try {
+        const pass = encoder.beginRenderPass({
+            colorAttachments: [
+                { view: texture, resolveTarget, loadOp: 'load', storeOp: 'store' },
+            ],
+            depthStencilAttachment: {
+                view: depthTexture,
+                depthLoadOp: 'load',
+                depthStoreOp: 'store',
+            },
+        });
+        pass.end();
+        return true;
+    }
+    catch (e) {
+        console.error(e);
+        return false;
+    }
+    finally {
+        encoder.finish();
+        texture.destroy();
+        resolveTarget.destroy();
+    }
+}
 /**
  * Shows an error dialog if getting a adapter or device wasn't successful,
- * or if/when the device is lost or has an uncaptured error.
+ * or if/when the device is lost or has an uncaptured error. Also checks
+ * for direct buffer binding, direct texture binding, and direct texture attachment binding.
  */
-function quitIfWebGPUNotAvailable(adapter, device) {
+function quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device) {
     if (!device) {
         quitIfAdapterNotAvailable(adapter);
         fail('Unable to get a device for an unknown reason');
@@ -9529,9 +9720,14 @@ function quitIfWebGPUNotAvailable(adapter, device) {
     device.lost.then((reason) => {
         fail(`Device lost ("${reason.reason}"):\n${reason.message}`);
     });
-    device.onuncapturederror = (ev) => {
+    device.addEventListener('uncapturederror', (ev) => {
         fail(`Uncaptured error:\n${ev.error.message}`);
-    };
+    });
+    if (!supportsDirectBufferBinding(device) ||
+        !supportsDirectTextureBinding(device) ||
+        !supportsDirectTextureAttachments(device)) {
+        fail('Core features of WebGPU are unavailable. Please update your browser to a newer version.');
+    }
 }
 /** Fail by showing a console error, and dialog box if possible. */
 const fail = (() => {
@@ -9575,17 +9771,32 @@ const fail = (() => {
 })();
 
 const canvas = document.querySelector('canvas');
-const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
-const requiredFeatures = presentationFormat === 'bgra8unorm' ? ['bgra8unorm-storage'] : [];
-const adapter = await navigator.gpu?.requestAdapter();
+const adapter = await navigator.gpu?.requestAdapter({
+    featureLevel: 'compatibility',
+});
 quitIfAdapterNotAvailable(adapter);
-for (const feature of requiredFeatures) {
-    if (!adapter.features.has(feature)) {
-        throw new Error(`sample requires ${feature}, but is not supported by the adapter`);
+const features = [];
+let presentationFormat = navigator.gpu.getPreferredCanvasFormat();
+if (presentationFormat == 'bgra8unorm') {
+    if (adapter.features.has('bgra8unorm-storage')) {
+        features.push('bgra8unorm-storage');
+    }
+    else {
+        // If the GPU prefers BGRA for presentation but the Adapter
+        // doesn't support bgra8unorm-storage (e.g., Compatibility
+        // mode), use rgba8unorm for both. This will be slower, but will
+        // work.
+        presentationFormat = 'rgba8unorm';
     }
 }
-const device = await adapter?.requestDevice({ requiredFeatures });
-quitIfWebGPUNotAvailable(adapter, device);
+const limits = {};
+quitIfLimitLessThan(adapter, 'maxComputeWorkgroupSizeX', 256, limits);
+quitIfLimitLessThan(adapter, 'maxComputeInvocationsPerWorkgroup', 256, limits);
+const device = await adapter?.requestDevice({
+    requiredFeatures: features,
+    requiredLimits: limits,
+});
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 const params = {
     renderer: 'rasterizer',
     rotateCamera: true,

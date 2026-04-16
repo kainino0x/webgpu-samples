@@ -1,13 +1,15 @@
 import { GUI } from 'dat.gui';
 import checkerWGSL from './checker.wgsl';
-import { quitIfWebGPUNotAvailable } from '../util';
+import { quitIfWebGPUNotAvailableOrMissingFeatures } from '../util';
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-const adapter = await navigator.gpu?.requestAdapter();
+const adapter = await navigator.gpu?.requestAdapter({
+  featureLevel: 'compatibility',
+});
 const device = await adapter?.requestDevice();
-quitIfWebGPUNotAvailable(adapter, device);
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
-const context = canvas.getContext('webgpu') as GPUCanvasContext;
+const context = canvas.getContext('webgpu');
 
 const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 
@@ -48,12 +50,7 @@ const uniformBuffer = device.createBuffer({
 
 const bindGroup = device.createBindGroup({
   layout: pipeline.getBindGroupLayout(0),
-  entries: [
-    {
-      binding: 0,
-      resource: { buffer: uniformBuffer },
-    },
-  ],
+  entries: [{ binding: 0, resource: uniformBuffer }],
 });
 
 const settings = {

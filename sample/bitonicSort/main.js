@@ -2490,176 +2490,6 @@ function updateDisplays(controllerArray) {
 }
 var GUI$1 = GUI;
 
-/**
- * @author mrdoob / http://mrdoob.com/
- */
-
-var Stats = function () {
-
-	var mode = 0;
-
-	var container = document.createElement( 'div' );
-	container.style.cssText = 'position:fixed;top:0;left:0;cursor:pointer;opacity:0.9;z-index:10000';
-	container.addEventListener( 'click', function ( event ) {
-
-		event.preventDefault();
-		showPanel( ++ mode % container.children.length );
-
-	}, false );
-
-	//
-
-	function addPanel( panel ) {
-
-		container.appendChild( panel.dom );
-		return panel;
-
-	}
-
-	function showPanel( id ) {
-
-		for ( var i = 0; i < container.children.length; i ++ ) {
-
-			container.children[ i ].style.display = i === id ? 'block' : 'none';
-
-		}
-
-		mode = id;
-
-	}
-
-	//
-
-	var beginTime = ( performance || Date ).now(), prevTime = beginTime, frames = 0;
-
-	var fpsPanel = addPanel( new Stats.Panel( 'FPS', '#0ff', '#002' ) );
-	var msPanel = addPanel( new Stats.Panel( 'MS', '#0f0', '#020' ) );
-
-	if ( self.performance && self.performance.memory ) {
-
-		var memPanel = addPanel( new Stats.Panel( 'MB', '#f08', '#201' ) );
-
-	}
-
-	showPanel( 0 );
-
-	return {
-
-		REVISION: 16,
-
-		dom: container,
-
-		addPanel: addPanel,
-		showPanel: showPanel,
-
-		begin: function () {
-
-			beginTime = ( performance || Date ).now();
-
-		},
-
-		end: function () {
-
-			frames ++;
-
-			var time = ( performance || Date ).now();
-
-			msPanel.update( time - beginTime, 200 );
-
-			if ( time >= prevTime + 1000 ) {
-
-				fpsPanel.update( ( frames * 1000 ) / ( time - prevTime ), 100 );
-
-				prevTime = time;
-				frames = 0;
-
-				if ( memPanel ) {
-
-					var memory = performance.memory;
-					memPanel.update( memory.usedJSHeapSize / 1048576, memory.jsHeapSizeLimit / 1048576 );
-
-				}
-
-			}
-
-			return time;
-
-		},
-
-		update: function () {
-
-			beginTime = this.end();
-
-		},
-
-		// Backwards Compatibility
-
-		domElement: container,
-		setMode: showPanel
-
-	};
-
-};
-
-Stats.Panel = function ( name, fg, bg ) {
-
-	var min = Infinity, max = 0, round = Math.round;
-	var PR = round( window.devicePixelRatio || 1 );
-
-	var WIDTH = 80 * PR, HEIGHT = 48 * PR,
-			TEXT_X = 3 * PR, TEXT_Y = 2 * PR,
-			GRAPH_X = 3 * PR, GRAPH_Y = 15 * PR,
-			GRAPH_WIDTH = 74 * PR, GRAPH_HEIGHT = 30 * PR;
-
-	var canvas = document.createElement( 'canvas' );
-	canvas.width = WIDTH;
-	canvas.height = HEIGHT;
-	canvas.style.cssText = 'width:80px;height:48px';
-
-	var context = canvas.getContext( '2d' );
-	context.font = 'bold ' + ( 9 * PR ) + 'px Helvetica,Arial,sans-serif';
-	context.textBaseline = 'top';
-
-	context.fillStyle = bg;
-	context.fillRect( 0, 0, WIDTH, HEIGHT );
-
-	context.fillStyle = fg;
-	context.fillText( name, TEXT_X, TEXT_Y );
-	context.fillRect( GRAPH_X, GRAPH_Y, GRAPH_WIDTH, GRAPH_HEIGHT );
-
-	context.fillStyle = bg;
-	context.globalAlpha = 0.9;
-	context.fillRect( GRAPH_X, GRAPH_Y, GRAPH_WIDTH, GRAPH_HEIGHT );
-
-	return {
-
-		dom: canvas,
-
-		update: function ( value, maxValue ) {
-
-			min = Math.min( min, value );
-			max = Math.max( max, value );
-
-			context.fillStyle = bg;
-			context.globalAlpha = 1;
-			context.fillRect( 0, 0, WIDTH, GRAPH_Y );
-			context.fillStyle = fg;
-			context.fillText( round( value ) + ' ' + name + ' (' + round( min ) + '-' + round( max ) + ')', TEXT_X, TEXT_Y );
-
-			context.drawImage( canvas, GRAPH_X + PR, GRAPH_Y, GRAPH_WIDTH - PR, GRAPH_HEIGHT, GRAPH_X, GRAPH_Y, GRAPH_WIDTH - PR, GRAPH_HEIGHT );
-
-			context.fillRect( GRAPH_X + GRAPH_WIDTH - PR, GRAPH_Y, PR, GRAPH_HEIGHT );
-
-			context.fillStyle = bg;
-			context.globalAlpha = 0.9;
-			context.fillRect( GRAPH_X + GRAPH_WIDTH - PR, GRAPH_Y, PR, round( ( 1 - ( value / maxValue ) ) * GRAPH_HEIGHT ) );
-
-		}
-
-	};
-
-};
-
 var fullscreenTexturedQuad = `@group(0) @binding(0) var mySampler : sampler;
 @group(0) @binding(1) var myTexture : texture_2d<f32>;
 
@@ -2700,6 +2530,16 @@ fn frag_main(@location(0) fragUV : vec2f) -> @location(0) vec4f {
 }
 `;
 
+// Show an error dialog if there's any uncaught exception or promise rejection.
+// This gets set up on all pages that include util.ts.
+globalThis.addEventListener('unhandledrejection', (ev) => {
+    fail(`unhandled promise rejection, please report a bug!
+  https://github.com/webgpu/webgpu-samples/issues/new\n${ev.reason}`);
+});
+globalThis.addEventListener('error', (ev) => {
+    fail(`uncaught exception, please report a bug!
+  https://github.com/webgpu/webgpu-samples/issues/new\n${ev.error}`);
+});
 /** Shows an error dialog if getting an adapter wasn't successful. */
 function quitIfAdapterNotAvailable(adapter) {
     if (!('gpu' in navigator)) {
@@ -2709,11 +2549,110 @@ function quitIfAdapterNotAvailable(adapter) {
         fail("requestAdapter returned null - this sample can't run on this system");
     }
 }
+function quitIfLimitLessThan(adapter, limit, requiredValue, limits) {
+    if (limit in adapter.limits) {
+        const limitKey = limit;
+        const limitValue = adapter.limits[limitKey];
+        if (limitValue < requiredValue) {
+            fail(`This sample can't run on this system. ${limit} is ${limitValue}, and this sample requires at least ${requiredValue}.`);
+        }
+        limits[limit] = requiredValue;
+    }
+}
+function supportsDirectBufferBinding(device) {
+    const buffer = device.createBuffer({
+        size: 16,
+        usage: GPUBufferUsage.UNIFORM,
+    });
+    const layout = device.createBindGroupLayout({
+        entries: [{ binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: {} }],
+    });
+    try {
+        device.createBindGroup({
+            layout,
+            entries: [{ binding: 0, resource: buffer }],
+        });
+        return true;
+    }
+    catch {
+        return false;
+    }
+    finally {
+        buffer.destroy();
+    }
+}
+function supportsDirectTextureBinding(device) {
+    const texture = device.createTexture({
+        size: [1],
+        usage: GPUTextureUsage.TEXTURE_BINDING,
+        format: 'rgba8unorm',
+    });
+    const layout = device.createBindGroupLayout({
+        entries: [{ binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: {} }],
+    });
+    try {
+        device.createBindGroup({
+            layout,
+            entries: [{ binding: 0, resource: texture }],
+        });
+        return true;
+    }
+    catch {
+        return false;
+    }
+    finally {
+        texture.destroy();
+    }
+}
+function supportsDirectTextureAttachments(device) {
+    const texture = device.createTexture({
+        size: [1],
+        usage: GPUTextureUsage.RENDER_ATTACHMENT,
+        format: 'rgba8unorm',
+        sampleCount: 4,
+    });
+    const resolveTarget = device.createTexture({
+        size: [1],
+        usage: GPUTextureUsage.RENDER_ATTACHMENT,
+        format: 'rgba8unorm',
+    });
+    const depthTexture = device.createTexture({
+        size: [1],
+        usage: GPUTextureUsage.RENDER_ATTACHMENT,
+        format: 'depth16unorm',
+        sampleCount: 4,
+    });
+    const encoder = device.createCommandEncoder();
+    try {
+        const pass = encoder.beginRenderPass({
+            colorAttachments: [
+                { view: texture, resolveTarget, loadOp: 'load', storeOp: 'store' },
+            ],
+            depthStencilAttachment: {
+                view: depthTexture,
+                depthLoadOp: 'load',
+                depthStoreOp: 'store',
+            },
+        });
+        pass.end();
+        return true;
+    }
+    catch (e) {
+        console.error(e);
+        return false;
+    }
+    finally {
+        encoder.finish();
+        texture.destroy();
+        resolveTarget.destroy();
+    }
+}
 /**
  * Shows an error dialog if getting a adapter or device wasn't successful,
- * or if/when the device is lost or has an uncaptured error.
+ * or if/when the device is lost or has an uncaptured error. Also checks
+ * for direct buffer binding, direct texture binding, and direct texture attachment binding.
  */
-function quitIfWebGPUNotAvailable(adapter, device) {
+function quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device) {
     if (!device) {
         quitIfAdapterNotAvailable(adapter);
         fail('Unable to get a device for an unknown reason');
@@ -2722,9 +2661,14 @@ function quitIfWebGPUNotAvailable(adapter, device) {
     device.lost.then((reason) => {
         fail(`Device lost ("${reason.reason}"):\n${reason.message}`);
     });
-    device.onuncapturederror = (ev) => {
+    device.addEventListener('uncapturederror', (ev) => {
         fail(`Uncaptured error:\n${ev.error.message}`);
-    };
+    });
+    if (!supportsDirectBufferBinding(device) ||
+        !supportsDirectTextureBinding(device) ||
+        !supportsDirectTextureAttachments(device)) {
+        fail('Core features of WebGPU are unavailable. Please update your browser to a newer version.');
+    }
 }
 /** Fail by showing a console error, and dialog box if possible. */
 const fail = (() => {
@@ -2812,20 +2756,23 @@ const createBindGroupCluster = (bindings, visibilities, resourceTypes, resourceL
     };
 };
 const SampleInitFactoryWebGPU = async (callback) => {
-    const init = async ({ canvas, gui, stats }) => {
-        const adapter = await navigator.gpu?.requestAdapter();
+    const init = async ({ canvas, gui }) => {
+        const adapter = await navigator.gpu?.requestAdapter({
+            featureLevel: 'compatibility',
+        });
         quitIfAdapterNotAvailable(adapter);
         const timestampQueryAvailable = adapter.features.has('timestamp-query');
-        let device;
+        let features = [];
+        const limits = {};
         if (timestampQueryAvailable) {
-            device = await adapter.requestDevice({
-                requiredFeatures: ['timestamp-query'],
-            });
+            features = ['timestamp-query'];
         }
-        else {
-            device = await adapter.requestDevice();
-        }
-        quitIfWebGPUNotAvailable(adapter, device);
+        quitIfLimitLessThan(adapter, 'maxStorageBuffersInFragmentStage', 1, limits);
+        const device = await adapter.requestDevice({
+            requiredFeatures: features,
+            requiredLimits: limits,
+        });
+        quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
         const context = canvas.getContext('webgpu');
         const devicePixelRatio = window.devicePixelRatio;
         canvas.width = canvas.clientWidth * devicePixelRatio;
@@ -2841,7 +2788,6 @@ const SampleInitFactoryWebGPU = async (callback) => {
             device,
             context,
             presentationFormat,
-            stats,
             timestampQueryAvailable,
         });
     };
@@ -3569,8 +3515,8 @@ SampleInitFactoryWebGPU(async ({ device, gui, presentationFormat, context, canva
     const totalSwapsController = executionInformationFolder.add(settings, 'Total Swaps');
     const prevBlockHeightController = executionInformationFolder.add(settings, 'Prev Swap Span');
     const nextBlockHeightController = executionInformationFolder.add(settings, 'Next Swap Span');
-    // Timestamp information for Chrome 121+ or other compatible browsers
-    const timestampFolder = gui.addFolder('Timestamp Info (Chrome 121+)');
+    // Timestamp information
+    const timestampFolder = gui.addFolder('Timestamp Info');
     const stepTimeController = timestampFolder.add(settings, 'Step Time');
     const sortTimeController = timestampFolder.add(settings, 'Sort Time');
     const averageSortTimeController = timestampFolder.add(settings, 'Average Sort Time');
@@ -3656,7 +3602,7 @@ SampleInitFactoryWebGPU(async ({ device, gui, presentationFormat, context, canva
             // Resolve time passed in between beginning and end of computePass
             if (timestampQueryAvailable) {
                 commandEncoder.resolveQuerySet(querySet, 0, 2, timestampQueryResolveBuffer, 0);
-                commandEncoder.copyBufferToBuffer(timestampQueryResolveBuffer, 0, timestampQueryResultBuffer, 0, 2 * BigInt64Array.BYTES_PER_ELEMENT);
+                commandEncoder.copyBufferToBuffer(timestampQueryResolveBuffer, timestampQueryResultBuffer);
             }
             settings['Step Index'] = settings['Step Index'] + 1;
             currentStepController.setValue(`${settings['Step Index']} of ${settings['Total Steps']}`);
@@ -3692,13 +3638,16 @@ SampleInitFactoryWebGPU(async ({ device, gui, presentationFormat, context, canva
             }
             else {
                 // Otherwise, execute the next disperse operation
-                settings['Next Swap Span'] > settings['Workgroup Size'] * 2
-                    ? nextStepController.setValue('DISPERSE_GLOBAL')
-                    : nextStepController.setValue('DISPERSE_LOCAL');
+                if (settings['Next Swap Span'] > settings['Workgroup Size'] * 2) {
+                    nextStepController.setValue('DISPERSE_GLOBAL');
+                }
+                else {
+                    nextStepController.setValue('DISPERSE_LOCAL');
+                }
             }
             // Copy GPU accessible buffers to CPU accessible buffers
-            commandEncoder.copyBufferToBuffer(elementsOutputBuffer, 0, elementsStagingBuffer, 0, elementsBufferSize);
-            commandEncoder.copyBufferToBuffer(atomicSwapsOutputBuffer, 0, atomicSwapsStagingBuffer, 0, Uint32Array.BYTES_PER_ELEMENT);
+            commandEncoder.copyBufferToBuffer(elementsOutputBuffer, elementsStagingBuffer);
+            commandEncoder.copyBufferToBuffer(atomicSwapsOutputBuffer, atomicSwapsStagingBuffer);
         }
         device.queue.submit([commandEncoder.finish()]);
         if (settings.executeStep &&
@@ -3752,9 +3701,7 @@ SampleInitFactoryWebGPU(async ({ device, gui, presentationFormat, context, canva
     requestAnimationFrame(frame);
 }).then((init) => {
     const canvas = document.querySelector('canvas');
-    const stats = new Stats();
     const gui = new GUI$1();
-    document.body.appendChild(stats.dom);
-    init({ canvas, stats, gui });
+    init({ canvas, gui });
 });
 //# sourceMappingURL=main.js.map

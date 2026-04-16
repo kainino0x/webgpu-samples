@@ -8,18 +8,27 @@ import fragmentWriteGBuffers from './fragmentWriteGBuffers.wgsl';
 import vertexTextureQuad from './vertexTextureQuad.wgsl';
 import fragmentGBuffersDebugView from './fragmentGBuffersDebugView.wgsl';
 import fragmentDeferredRendering from './fragmentDeferredRendering.wgsl';
-import { quitIfWebGPUNotAvailable } from '../util';
+import {
+  quitIfWebGPUNotAvailableOrMissingFeatures,
+  quitIfLimitLessThan,
+} from '../util';
 
 const kMaxNumLights = 1024;
-const lightExtentMin = vec3.fromValues(-50, -30, -50);
-const lightExtentMax = vec3.fromValues(50, 50, 50);
+const lightExtentMin = [-50, -30, -50];
+const lightExtentMax = [50, 50, 50];
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-const adapter = await navigator.gpu?.requestAdapter();
-const device = await adapter?.requestDevice();
-quitIfWebGPUNotAvailable(adapter, device);
+const adapter = await navigator.gpu?.requestAdapter({
+  featureLevel: 'compatibility',
+});
+const limits: Record<string, GPUSize32> = {};
+quitIfLimitLessThan(adapter, 'maxStorageBuffersInFragmentStage', 1, limits);
+const device = await adapter?.requestDevice({
+  requiredLimits: limits,
+});
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
-const context = canvas.getContext('webgpu') as GPUCanvasContext;
+const context = canvas.getContext('webgpu');
 
 const devicePixelRatio = window.devicePixelRatio;
 canvas.width = canvas.clientWidth * devicePixelRatio;
@@ -34,6 +43,7 @@ context.configure({
 // Create the model vertex buffer.
 const kVertexStride = 8;
 const vertexBuffer = device.createBuffer({
+  label: 'model vertex buffer',
   // position: vec3, normal: vec3, uv: vec2
   size: mesh.positions.length * kVertexStride * Float32Array.BYTES_PER_ELEMENT,
   usage: GPUBufferUsage.VERTEX,
@@ -52,6 +62,7 @@ const vertexBuffer = device.createBuffer({
 // Create the model index buffer.
 const indexCount = mesh.triangles.length * 3;
 const indexBuffer = device.createBuffer({
+  label: 'model index buffer',
   size: indexCount * Uint16Array.BYTES_PER_ELEMENT,
   usage: GPUBufferUsage.INDEX,
   mappedAtCreation: true,
@@ -82,9 +93,9 @@ const depthTexture = device.createTexture({
 });
 
 const gBufferTextureViews = [
-  gBufferTexture2DFloat16.createView(),
-  gBufferTextureAlbedo.createView(),
-  depthTexture.createView(),
+  gBufferTexture2DFloat16.createView({ label: 'gbuffer texture normal' }),
+  gBufferTextureAlbedo.createView({ label: 'gbuffer texture albedo' }),
+  depthTexture.createView({ label: 'depth normal' }),
 ];
 
 const vertexBuffers: Iterable<GPUVertexBufferLayout> = [
@@ -119,6 +130,7 @@ const primitive: GPUPrimitiveState = {
 };
 
 const writeGBuffersPipeline = device.createRenderPipeline({
+  label: 'write gbuffers',
   layout: 'auto',
   vertex: {
     module: device.createShaderModule({
@@ -165,7 +177,7 @@ const gBufferTexturesBindGroupLayout = device.createBindGroupLayout({
       binding: 2,
       visibility: GPUShaderStage.FRAGMENT,
       texture: {
-        sampleType: 'depth',
+        sampleType: 'unfilterable-float',
       },
     },
   ],
@@ -198,6 +210,7 @@ const lightsBufferBindGroupLayout = device.createBindGroupLayout({
 });
 
 const gBuffersDebugViewPipeline = device.createRenderPipeline({
+  label: 'debug view',
   layout: device.createPipelineLayout({
     bindGroupLayouts: [gBufferTexturesBindGroupLayout],
   }),
@@ -224,6 +237,7 @@ const gBuffersDebugViewPipeline = device.createRenderPipeline({
 });
 
 const deferredRenderPipeline = device.createRenderPipeline({
+  label: 'deferred final',
   layout: device.createPipelineLayout({
     bindGroupLayouts: [
       gBufferTexturesBindGroupLayout,
@@ -266,7 +280,7 @@ const writeGBufferPassDescriptor: GPURenderPassDescriptor = {
     },
   ],
   depthStencilAttachment: {
-    view: depthTexture.createView(),
+    view: gBufferTextureViews[2],
 
     depthClearValue: 1.0,
     depthLoadOp: 'clear',
@@ -293,6 +307,7 @@ const settings = {
 };
 const configUniformBuffer = (() => {
   const buffer = device.createBuffer({
+    label: 'config uniforms',
     size: Uint32Array.BYTES_PER_ELEMENT,
     mappedAtCreation: true,
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
@@ -316,11 +331,13 @@ gui
   });
 
 const modelUniformBuffer = device.createBuffer({
+  label: 'model matrix uniform',
   size: 4 * 16 * 2, // two 4x4 matrix
   usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
 });
 
 const cameraUniformBuffer = device.createBuffer({
+  label: 'camera matrix uniform',
   size: 4 * 16 * 2, // two 4x4 matrix
   usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
 });
@@ -328,36 +345,17 @@ const cameraUniformBuffer = device.createBuffer({
 const sceneUniformBindGroup = device.createBindGroup({
   layout: writeGBuffersPipeline.getBindGroupLayout(0),
   entries: [
-    {
-      binding: 0,
-      resource: {
-        buffer: modelUniformBuffer,
-      },
-    },
-    {
-      binding: 1,
-      resource: {
-        buffer: cameraUniformBuffer,
-      },
-    },
+    { binding: 0, resource: modelUniformBuffer },
+    { binding: 1, resource: cameraUniformBuffer },
   ],
 });
 
 const gBufferTexturesBindGroup = device.createBindGroup({
   layout: gBufferTexturesBindGroupLayout,
   entries: [
-    {
-      binding: 0,
-      resource: gBufferTextureViews[0],
-    },
-    {
-      binding: 1,
-      resource: gBufferTextureViews[1],
-    },
-    {
-      binding: 2,
-      resource: gBufferTextureViews[2],
-    },
+    { binding: 0, resource: gBufferTextureViews[0] },
+    { binding: 1, resource: gBufferTextureViews[1] },
+    { binding: 2, resource: gBufferTextureViews[2] },
   ],
 });
 
@@ -368,6 +366,7 @@ const lightDataStride = 8;
 const bufferSizeInByte =
   Float32Array.BYTES_PER_ELEMENT * lightDataStride * kMaxNumLights;
 const lightsBuffer = device.createBuffer({
+  label: 'lights storage',
   size: bufferSizeInByte,
   usage: GPUBufferUsage.STORAGE,
   mappedAtCreation: true,
@@ -398,6 +397,7 @@ for (let i = 0; i < kMaxNumLights; i++) {
 lightsBuffer.unmap();
 
 const lightExtentBuffer = device.createBuffer({
+  label: 'light extent uniform',
   size: 4 * 8,
   usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
 });
@@ -413,6 +413,7 @@ device.queue.writeBuffer(
 );
 
 const lightUpdateComputePipeline = device.createComputePipeline({
+  label: 'light update',
   layout: 'auto',
   compute: {
     module: device.createShaderModule({
@@ -425,21 +426,15 @@ const lightsBufferBindGroup = device.createBindGroup({
   entries: [
     {
       binding: 0,
-      resource: {
-        buffer: lightsBuffer,
-      },
+      resource: lightsBuffer,
     },
     {
       binding: 1,
-      resource: {
-        buffer: configUniformBuffer,
-      },
+      resource: configUniformBuffer,
     },
     {
       binding: 2,
-      resource: {
-        buffer: cameraUniformBuffer,
-      },
+      resource: cameraUniformBuffer,
     },
   ],
 });
@@ -448,30 +443,24 @@ const lightsBufferComputeBindGroup = device.createBindGroup({
   entries: [
     {
       binding: 0,
-      resource: {
-        buffer: lightsBuffer,
-      },
+      resource: lightsBuffer,
     },
     {
       binding: 1,
-      resource: {
-        buffer: configUniformBuffer,
-      },
+      resource: configUniformBuffer,
     },
     {
       binding: 2,
-      resource: {
-        buffer: lightExtentBuffer,
-      },
+      resource: lightExtentBuffer,
     },
   ],
 });
 //--------------------
 
 // Scene matrices
-const eyePosition = vec3.fromValues(0, 50, -100);
-const upVector = vec3.fromValues(0, 1, 0);
-const origin = vec3.fromValues(0, 0, 0);
+const eyePosition = [0, 50, -100];
+const upVector = [0, 1, 0];
+const origin = [0, 0, 0];
 
 const projectionMatrix = mat4.perspective((2 * Math.PI) / 5, aspect, 1, 2000.0);
 

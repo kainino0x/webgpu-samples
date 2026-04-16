@@ -1,3 +1,13 @@
+// Show an error dialog if there's any uncaught exception or promise rejection.
+// This gets set up on all pages that include util.ts.
+globalThis.addEventListener('unhandledrejection', (ev) => {
+    fail(`unhandled promise rejection, please report a bug!
+  https://github.com/webgpu/webgpu-samples/issues/new\n${ev.reason}`);
+});
+globalThis.addEventListener('error', (ev) => {
+    fail(`uncaught exception, please report a bug!
+  https://github.com/webgpu/webgpu-samples/issues/new\n${ev.error}`);
+});
 /** Shows an error dialog if getting an adapter wasn't successful. */
 function quitIfAdapterNotAvailable(adapter) {
     if (!('gpu' in navigator)) {
@@ -7,11 +17,100 @@ function quitIfAdapterNotAvailable(adapter) {
         fail("requestAdapter returned null - this sample can't run on this system");
     }
 }
+function supportsDirectBufferBinding(device) {
+    const buffer = device.createBuffer({
+        size: 16,
+        usage: GPUBufferUsage.UNIFORM,
+    });
+    const layout = device.createBindGroupLayout({
+        entries: [{ binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: {} }],
+    });
+    try {
+        device.createBindGroup({
+            layout,
+            entries: [{ binding: 0, resource: buffer }],
+        });
+        return true;
+    }
+    catch {
+        return false;
+    }
+    finally {
+        buffer.destroy();
+    }
+}
+function supportsDirectTextureBinding(device) {
+    const texture = device.createTexture({
+        size: [1],
+        usage: GPUTextureUsage.TEXTURE_BINDING,
+        format: 'rgba8unorm',
+    });
+    const layout = device.createBindGroupLayout({
+        entries: [{ binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: {} }],
+    });
+    try {
+        device.createBindGroup({
+            layout,
+            entries: [{ binding: 0, resource: texture }],
+        });
+        return true;
+    }
+    catch {
+        return false;
+    }
+    finally {
+        texture.destroy();
+    }
+}
+function supportsDirectTextureAttachments(device) {
+    const texture = device.createTexture({
+        size: [1],
+        usage: GPUTextureUsage.RENDER_ATTACHMENT,
+        format: 'rgba8unorm',
+        sampleCount: 4,
+    });
+    const resolveTarget = device.createTexture({
+        size: [1],
+        usage: GPUTextureUsage.RENDER_ATTACHMENT,
+        format: 'rgba8unorm',
+    });
+    const depthTexture = device.createTexture({
+        size: [1],
+        usage: GPUTextureUsage.RENDER_ATTACHMENT,
+        format: 'depth16unorm',
+        sampleCount: 4,
+    });
+    const encoder = device.createCommandEncoder();
+    try {
+        const pass = encoder.beginRenderPass({
+            colorAttachments: [
+                { view: texture, resolveTarget, loadOp: 'load', storeOp: 'store' },
+            ],
+            depthStencilAttachment: {
+                view: depthTexture,
+                depthLoadOp: 'load',
+                depthStoreOp: 'store',
+            },
+        });
+        pass.end();
+        return true;
+    }
+    catch (e) {
+        console.error(e);
+        return false;
+    }
+    finally {
+        encoder.finish();
+        texture.destroy();
+        resolveTarget.destroy();
+    }
+}
 /**
  * Shows an error dialog if getting a adapter or device wasn't successful,
- * or if/when the device is lost or has an uncaptured error.
+ * or if/when the device is lost or has an uncaptured error. Also checks
+ * for direct buffer binding, direct texture binding, and direct texture attachment binding.
  */
-function quitIfWebGPUNotAvailable(adapter, device) {
+function quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device) {
     if (!device) {
         quitIfAdapterNotAvailable(adapter);
         fail('Unable to get a device for an unknown reason');
@@ -20,9 +119,14 @@ function quitIfWebGPUNotAvailable(adapter, device) {
     device.lost.then((reason) => {
         fail(`Device lost ("${reason.reason}"):\n${reason.message}`);
     });
-    device.onuncapturederror = (ev) => {
+    device.addEventListener('uncapturederror', (ev) => {
         fail(`Uncaptured error:\n${ev.error.message}`);
-    };
+    });
+    if (!supportsDirectBufferBinding(device) ||
+        !supportsDirectTextureBinding(device) ||
+        !supportsDirectTextureAttachments(device)) {
+        fail('Core features of WebGPU are unavailable. Please update your browser to a newer version.');
+    }
 }
 /** Fail by showing a console error, and dialog box if possible. */
 const fail = (() => {
@@ -2676,16 +2780,18 @@ function updateDisplays(controllerArray) {
 var GUI$1 = GUI;
 
 const canvas = document.querySelector('canvas');
-const adapter = await navigator.gpu?.requestAdapter();
+const adapter = await navigator.gpu?.requestAdapter({
+    featureLevel: 'compatibility',
+});
 quitIfAdapterNotAvailable(adapter);
 const hasTimestampQuery = adapter.features.has('timestamp-query');
 const device = await adapter.requestDevice({
     requiredFeatures: hasTimestampQuery ? ['timestamp-query'] : [],
 });
-quitIfWebGPUNotAvailable(adapter, device);
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 const perfDisplayContainer = document.createElement('div');
 perfDisplayContainer.style.color = 'white';
-perfDisplayContainer.style.backdropFilter = 'blur(10px)';
+perfDisplayContainer.style.background = 'black';
 perfDisplayContainer.style.position = 'absolute';
 perfDisplayContainer.style.bottom = '10px';
 perfDisplayContainer.style.left = '10px';
@@ -2873,28 +2979,9 @@ for (let i = 0; i < 2; ++i) {
     particleBindGroups[i] = device.createBindGroup({
         layout: computePipeline.getBindGroupLayout(0),
         entries: [
-            {
-                binding: 0,
-                resource: {
-                    buffer: simParamBuffer,
-                },
-            },
-            {
-                binding: 1,
-                resource: {
-                    buffer: particleBuffers[i],
-                    offset: 0,
-                    size: initialParticleData.byteLength,
-                },
-            },
-            {
-                binding: 2,
-                resource: {
-                    buffer: particleBuffers[(i + 1) % 2],
-                    offset: 0,
-                    size: initialParticleData.byteLength,
-                },
-            },
+            { binding: 0, resource: simParamBuffer },
+            { binding: 1, resource: particleBuffers[i] },
+            { binding: 2, resource: particleBuffers[(i + 1) % 2] },
         ],
     });
 }
@@ -2931,7 +3018,7 @@ function frame() {
                     usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
                 });
         commandEncoder.resolveQuerySet(querySet, 0, 4, resolveBuffer, 0);
-        commandEncoder.copyBufferToBuffer(resolveBuffer, 0, resultBuffer, 0, resultBuffer.size);
+        commandEncoder.copyBufferToBuffer(resolveBuffer, resultBuffer);
     }
     device.queue.submit([commandEncoder.finish()]);
     if (hasTimestampQuery) {

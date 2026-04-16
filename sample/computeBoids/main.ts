@@ -1,21 +1,26 @@
-import { quitIfAdapterNotAvailable, quitIfWebGPUNotAvailable } from '../util';
+import {
+  quitIfAdapterNotAvailable,
+  quitIfWebGPUNotAvailableOrMissingFeatures,
+} from '../util';
 import spriteWGSL from './sprite.wgsl';
 import updateSpritesWGSL from './updateSprites.wgsl';
 import { GUI } from 'dat.gui';
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-const adapter = await navigator.gpu?.requestAdapter();
+const adapter = await navigator.gpu?.requestAdapter({
+  featureLevel: 'compatibility',
+});
 quitIfAdapterNotAvailable(adapter);
 
 const hasTimestampQuery = adapter.features.has('timestamp-query');
 const device = await adapter.requestDevice({
   requiredFeatures: hasTimestampQuery ? ['timestamp-query'] : [],
 });
-quitIfWebGPUNotAvailable(adapter, device);
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
 const perfDisplayContainer = document.createElement('div');
 perfDisplayContainer.style.color = 'white';
-perfDisplayContainer.style.backdropFilter = 'blur(10px)';
+perfDisplayContainer.style.background = 'black';
 perfDisplayContainer.style.position = 'absolute';
 perfDisplayContainer.style.bottom = '10px';
 perfDisplayContainer.style.left = '10px';
@@ -30,7 +35,7 @@ if (canvas.parentNode) {
   console.error('canvas.parentNode is null');
 }
 
-const context = canvas.getContext('webgpu') as GPUCanvasContext;
+const context = canvas.getContext('webgpu');
 const devicePixelRatio = window.devicePixelRatio;
 canvas.width = canvas.clientWidth * devicePixelRatio;
 canvas.height = canvas.clientHeight * devicePixelRatio;
@@ -226,28 +231,9 @@ for (let i = 0; i < 2; ++i) {
   particleBindGroups[i] = device.createBindGroup({
     layout: computePipeline.getBindGroupLayout(0),
     entries: [
-      {
-        binding: 0,
-        resource: {
-          buffer: simParamBuffer,
-        },
-      },
-      {
-        binding: 1,
-        resource: {
-          buffer: particleBuffers[i],
-          offset: 0,
-          size: initialParticleData.byteLength,
-        },
-      },
-      {
-        binding: 2,
-        resource: {
-          buffer: particleBuffers[(i + 1) % 2],
-          offset: 0,
-          size: initialParticleData.byteLength,
-        },
-      },
+      { binding: 0, resource: simParamBuffer },
+      { binding: 1, resource: particleBuffers[i] },
+      { binding: 2, resource: particleBuffers[(i + 1) % 2] },
     ],
   });
 }
@@ -287,13 +273,7 @@ function frame() {
         usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
       });
     commandEncoder.resolveQuerySet(querySet, 0, 4, resolveBuffer, 0);
-    commandEncoder.copyBufferToBuffer(
-      resolveBuffer,
-      0,
-      resultBuffer,
-      0,
-      resultBuffer.size
-    );
+    commandEncoder.copyBufferToBuffer(resolveBuffer, resultBuffer);
   }
 
   device.queue.submit([commandEncoder.finish()]);

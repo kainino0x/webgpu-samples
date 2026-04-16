@@ -1,10 +1,10 @@
-import { mat4, vec3 } from 'wgpu-matrix';
+import { mat4 } from 'wgpu-matrix';
 import { GUI } from 'dat.gui';
 import { createSphereMesh, SphereLayout } from '../../meshes/sphere';
 import Stats from 'stats.js';
 
 import meshWGSL from './mesh.wgsl';
-import { quitIfWebGPUNotAvailable } from '../util';
+import { quitIfWebGPUNotAvailableOrMissingFeatures } from '../util';
 
 interface Renderable {
   vertices: GPUBuffer;
@@ -14,9 +14,11 @@ interface Renderable {
 }
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-const adapter = await navigator.gpu?.requestAdapter();
+const adapter = await navigator.gpu?.requestAdapter({
+  featureLevel: 'compatibility',
+});
 const device = await adapter?.requestDevice();
-quitIfWebGPUNotAvailable(adapter, device);
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
 const settings = {
   useRenderBundles: true,
@@ -30,7 +32,7 @@ gui.add(settings, 'asteroidCount', 1000, 10000, 1000).onChange(() => {
   updateRenderBundle();
 });
 
-const context = canvas.getContext('webgpu') as GPUCanvasContext;
+const context = canvas.getContext('webgpu');
 
 const devicePixelRatio = window.devicePixelRatio;
 canvas.width = canvas.clientWidth * devicePixelRatio;
@@ -214,20 +216,9 @@ function createSphereBindGroup(
   const bindGroup = device.createBindGroup({
     layout: pipeline.getBindGroupLayout(1),
     entries: [
-      {
-        binding: 0,
-        resource: {
-          buffer: uniformBuffer,
-        },
-      },
-      {
-        binding: 1,
-        resource: sampler,
-      },
-      {
-        binding: 2,
-        resource: texture.createView(),
-      },
+      { binding: 0, resource: uniformBuffer },
+      { binding: 1, resource: sampler },
+      { binding: 2, resource: texture.createView() },
     ],
   });
 
@@ -297,19 +288,12 @@ const modelViewProjectionMatrix = mat4.create();
 
 const frameBindGroup = device.createBindGroup({
   layout: pipeline.getBindGroupLayout(0),
-  entries: [
-    {
-      binding: 0,
-      resource: {
-        buffer: uniformBuffer,
-      },
-    },
-  ],
+  entries: [{ binding: 0, resource: uniformBuffer }],
 });
 
 function getTransformationMatrix() {
   const viewMatrix = mat4.identity();
-  mat4.translate(viewMatrix, vec3.fromValues(0, 0, -4), viewMatrix);
+  mat4.translate(viewMatrix, [0, 0, -4], viewMatrix);
   const now = Date.now() / 1000;
   // Tilt the view matrix so the planet looks like it's off-axis.
   mat4.rotateZ(viewMatrix, Math.PI * 0.1, viewMatrix);

@@ -1,4 +1,4 @@
-import { mat4, vec3 } from 'wgpu-matrix';
+import { mat4 } from 'wgpu-matrix';
 import commonWGSL from './common.wgsl';
 
 /**
@@ -55,20 +55,12 @@ export default class Common {
         {
           // common_uniforms
           binding: 0,
-          resource: {
-            buffer: this.uniformBuffer,
-            offset: 0,
-            size: this.uniformBuffer.size,
-          },
+          resource: this.uniformBuffer,
         },
         {
           // quads
           binding: 1,
-          resource: {
-            buffer: quads,
-            offset: 0,
-            size: quads.size,
-          },
+          resource: quads,
         },
       ],
     });
@@ -88,13 +80,9 @@ export default class Common {
     const viewRotation = params.rotateCamera ? this.frame / 1000 : 0;
 
     const viewMatrix = mat4.lookAt(
-      vec3.fromValues(
-        Math.sin(viewRotation) * 15,
-        5,
-        Math.cos(viewRotation) * 15
-      ),
-      vec3.fromValues(0, 5, 0),
-      vec3.fromValues(0, 1, 0)
+      [Math.sin(viewRotation) * 15, 5, Math.cos(viewRotation) * 15],
+      [0, 5, 0],
+      [0, 1, 0]
     );
     const mvp = mat4.multiply(projectionMatrix, viewMatrix);
     const invMVP = mat4.invert(mvp);

@@ -1,4 +1,4 @@
-import { mat4, Mat4, vec3 } from 'wgpu-matrix';
+import { mat4, Mat4 } from 'wgpu-matrix';
 import { GUI } from 'dat.gui';
 
 import vertexWGSL from './vertex.wgsl';
@@ -8,7 +8,7 @@ import vertexTextureQuadWGSL from './vertexTextureQuad.wgsl';
 import fragmentTextureQuadWGSL from './fragmentTextureQuad.wgsl';
 import vertexPrecisionErrorPassWGSL from './vertexPrecisionErrorPass.wgsl';
 import fragmentPrecisionErrorPassWGSL from './fragmentPrecisionErrorPass.wgsl';
-import { quitIfWebGPUNotAvailable } from '../util';
+import { quitIfWebGPUNotAvailableOrMissingFeatures } from '../util';
 
 // Two planes close to each other for depth precision test
 const geometryVertexSize = 4 * 8; // Byte size of one geometry vertex.
@@ -66,11 +66,13 @@ const depthClearValues = {
 };
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-const adapter = await navigator.gpu?.requestAdapter();
+const adapter = await navigator.gpu?.requestAdapter({
+  featureLevel: 'compatibility',
+});
 const device = await adapter?.requestDevice();
-quitIfWebGPUNotAvailable(adapter, device);
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
-const context = canvas.getContext('webgpu') as GPUCanvasContext;
+const context = canvas.getContext('webgpu');
 
 const devicePixelRatio = window.devicePixelRatio;
 canvas.width = canvas.clientWidth * devicePixelRatio;
@@ -98,7 +100,7 @@ const depthTextureBindGroupLayout = device.createBindGroupLayout({
       binding: 0,
       visibility: GPUShaderStage.FRAGMENT,
       texture: {
-        sampleType: 'depth',
+        sampleType: 'unfilterable-float',
       },
     },
   ],
@@ -448,35 +450,15 @@ const uniformBindGroups = [
   device.createBindGroup({
     layout: uniformBindGroupLayout,
     entries: [
-      {
-        binding: 0,
-        resource: {
-          buffer: uniformBuffer,
-        },
-      },
-      {
-        binding: 1,
-        resource: {
-          buffer: cameraMatrixBuffer,
-        },
-      },
+      { binding: 0, resource: uniformBuffer },
+      { binding: 1, resource: cameraMatrixBuffer },
     ],
   }),
   device.createBindGroup({
     layout: uniformBindGroupLayout,
     entries: [
-      {
-        binding: 0,
-        resource: {
-          buffer: uniformBuffer,
-        },
-      },
-      {
-        binding: 1,
-        resource: {
-          buffer: cameraMatrixReversedDepthBuffer,
-        },
-      },
+      { binding: 0, resource: uniformBuffer },
+      { binding: 1, resource: cameraMatrixReversedDepthBuffer },
     ],
   }),
 ];
@@ -490,20 +472,18 @@ for (let x = 0; x < xCount; x++) {
     const z = -800 * m;
     const s = 1 + 50 * m;
 
-    modelMatrices[m] = mat4.translation(
-      vec3.fromValues(
-        x - xCount / 2 + 0.5,
-        (4.0 - 0.2 * z) * (y - yCount / 2 + 1.0),
-        z
-      )
-    );
-    mat4.scale(modelMatrices[m], vec3.fromValues(s, s, s), modelMatrices[m]);
+    modelMatrices[m] = mat4.translation([
+      x - xCount / 2 + 0.5,
+      (4.0 - 0.2 * z) * (y - yCount / 2 + 1.0),
+      z,
+    ]);
+    mat4.scale(modelMatrices[m], [s, s, s], modelMatrices[m]);
 
     m++;
   }
 }
 
-const viewMatrix = mat4.translation(vec3.fromValues(0, 0, -12));
+const viewMatrix = mat4.translation([0, 0, -12]);
 
 const aspect = (0.5 * canvas.width) / canvas.height;
 // wgpu-matrix perspective doesn't handle zFar === Infinity now.
@@ -531,7 +511,7 @@ function updateTransformationMatrix() {
   for (let i = 0, m = 0; i < numInstances; i++, m += matrixFloatCount) {
     mat4.rotate(
       modelMatrices[i],
-      vec3.fromValues(Math.sin(now), Math.cos(now), 0),
+      [Math.sin(now), Math.cos(now), 0],
       (Math.PI / 180) * 30,
       tmpMat4
     );

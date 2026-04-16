@@ -1,5 +1,15 @@
 <!DOCTYPE html><meta charset="utf-8">
 <meta name=viewport content="width=900">
+<!-- WebGPUCompatibilityMode origin token for https://webgpu.github.io expiring April 21, 2026 -->
+<meta
+  http-equiv="origin-trial"
+  content="Aktu7041jFm00ls336/bRinubASRzg1tPs4wxXOZkF1uP0LaIURinGC7ti0Vf352Q9OKFL1siRfpptLjNIKpKQcAAABheyJvcmlnaW4iOiJodHRwczovL3dlYmdwdS5naXRodWIuaW86NDQzIiwiZmVhdHVyZSI6IldlYkdQVUNvbXBhdGliaWxpdHlNb2RlIiwiZXhwaXJ5IjoxNzc2NzI5NjAwfQ=="
+/>
+<!-- WebGPUCompatibilityMode origin token for http://localhost:8080 expiring April 21, 2026 -->
+<meta
+  http-equiv="origin-trial"
+  content="AqW27Ayelg5vbcAaYcweU+sLjZq5r6idHCWU4MJgnkP1YBgmOMqazdGuakSnGylTkyA/bRHkCJZFdfYjFlylOgAAAABaeyJvcmlnaW4iOiJodHRwOi8vbG9jYWxob3N0OjgwODAiLCJmZWF0dXJlIjoiV2ViR1BVQ29tcGF0aWJpbGl0eU1vZGUiLCJleHBpcnkiOjE3NzY3Mjk2MDB9"
+/>
 <title>Web graphics workload simulator</title>
 <style>
 body {
@@ -418,9 +428,6 @@ let renderBundle;
 let renderBundleAfterScissor;
 let renderBundleNumDrawCalls;
 let renderBundleInstances;
-let querySet;
-let queryBuffers = [];
-let queryResolveBuffer;
 let mapAsyncArray = new Float32Array(0);
 let mapAsyncTargetBuffer;
 let mapAsyncBufferSize = 0;
@@ -448,8 +455,6 @@ let intervalFps;
 let timeout = null;
 let rafPending = 0;
 let postMessagePending = 0;
-let timeQueryResultsMs = [];
-let lastTimeQueryTime = 0;
 
 const animationDirection = [1, 1];
 async function render(fromRaf, fromPostMessage) {
@@ -556,7 +561,8 @@ async function render(fromRaf, fromPostMessage) {
       // We want to actually use this data in rendering so the graphics driver
       // can't optimize away the upload. Fill the first few bytes with our real
       // vertex data.
-      bufferDataArray.set(vertices, 0);
+      if (bufferDataArray.length > 0)
+        bufferDataArray.set(vertices, 0);
     }
   }
 
@@ -568,7 +574,8 @@ async function render(fromRaf, fromPostMessage) {
 
   if (mapAsyncArray.length * 4 != mapAsync.value * 1024 * 1024) {
     mapAsyncArray = new Float32Array(mapAsync.value * 1024 * 1024 / 4);
-    mapAsyncArray.set(vertices, 0);
+    if (mapAsyncArray.length > 0)
+      mapAsyncArray.set(vertices, 0);
   }
 
   // Calculate how many instances and draw calls we need based on slider values.
@@ -589,17 +596,16 @@ async function render(fromRaf, fromPostMessage) {
       try {
         if (deviceRequested) return;
         deviceRequested = true;
-        let adapter = await navigator.gpu.requestAdapter();
+        let adapter = await navigator.gpu.requestAdapter({
+          featureLevel: 'compatibility',
+        });
         featuresAndLimits.textContent = JSON.stringify(
           {
             name: adapter.name,
             features: Array.from(adapter.features || []).sort(),
             limits: adapter.limits
           }, 0, 2);
-        const useTimestampQueries = adapter.features.has('timestamp-query');
-        device = await adapter.requestDevice({
-          nonGuaranteedFeatures: useTimestampQueries ? ['timestamp-query'] : [],
-        });
+        device = await adapter.requestDevice({});
         device.addEventListener('uncapturederror', (e)=>{
           if (!errorMessage.textContent) errorMessage.textContent = 'Uncaptured error: ' + e.error.message;
         });
@@ -704,18 +710,11 @@ async function render(fromRaf, fromPostMessage) {
         bindGroup = device.createBindGroup({
           layout: bindGroupLayout,
           entries: [
-            { binding: 0, resource: { buffer: uniformBuffer } },
+            { binding: 0, resource: uniformBuffer },
             { binding: 1, resource: sampler },
             { binding: 2, resource: texture.createView() },
           ],
         });
-        if (useTimestampQueries && device.createQuerySet) {
-          querySet = device.createQuerySet({type: 'timestamp', count: 2});
-          queryResolveBuffer = device.createBuffer({
-            size: 16,
-            usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC,
-          });
-        }
       } catch(e) {
         if (!errorMessage.textContent) errorMessage.textContent = "Error initializing WebGPU: " + e;
         return;
@@ -731,14 +730,9 @@ async function render(fromRaf, fromPostMessage) {
     }
     try {
       const canvasView = canvasContext.getCurrentTexture().createView();
-      const commandBuffers = [];
+
       device.queue.writeBuffer(uniformBuffer, 0, new Float32Array([position[0] / size * 2 - 1, 1 - position[1] * 2 / size]));
       let buffer = null;
-
-      // Start off by writing a timestamp for the beginning of the frame.
-      const timestampEncoder = device.createCommandEncoder();
-      if (querySet) timestampEncoder.writeTimestamp(querySet, 0);
-      device.queue.submit([timestampEncoder.finish()]);
 
       // Upload data using createBuffer with mappedAtCreation.
       if (bufferData.value > 0) {
@@ -794,7 +788,7 @@ async function render(fromRaf, fromPostMessage) {
         new Float32Array(buffer.getMappedRange()).set(mapAsyncArray);
         buffer.unmap();
         const commandEncoder = device.createCommandEncoder();
-        commandEncoder.copyBufferToBuffer(buffer, 0, mapAsyncTargetBuffer, 0, mapAsyncArray.byteLength);
+        commandEncoder.copyBufferToBuffer(buffer, mapAsyncTargetBuffer);
         // TODO: combine this submit with the main one, but we'll have to delay calling mapAsync until after the submit.
         device.queue.submit([commandEncoder.finish()]);
         // TODO: use this data during rendering.
@@ -890,39 +884,7 @@ async function render(fromRaf, fromPostMessage) {
       }
       passEncoder.end();
       if (buffer) buffer.destroy();
-      let queryBuffer;
-      if (querySet) {
-        // Timestamp for the end of the frame.
-        commandEncoder.writeTimestamp(querySet, 1);
-        // We create a queue of staging buffers to hold the timestamps while we
-        // map them into CPU memory. If the queue is empty, create a new buffer.
-        if (queryBuffers.length == 0) {
-          const buffer = device.createBuffer({
-            size: 16,
-            usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
-          });
-          queryBuffers.push(buffer);
-        }
-        // Write the timestamps into a GPU side buffer and copy into the staging buffer.
-        queryBuffer = queryBuffers.shift();
-        commandEncoder.resolveQuerySet(querySet, 0, 2, queryResolveBuffer, 0);
-        commandEncoder.copyBufferToBuffer(queryResolveBuffer, 0, queryBuffer, 0, 16);
-      }
-      commandBuffers.push(commandEncoder.finish());
-      device.queue.submit(commandBuffers);
-      if (querySet) {
-        // Once the staging buffer is mapped we can finally calculate the frame duration
-        // and put the staging buffer back into the queue.
-        queryBuffer.mapAsync(GPUMapMode.READ).then(()=>{
-          let array = new BigInt64Array(queryBuffer.getMappedRange());
-          let nanoseconds = Number(array[1] - array[0]);
-          if (timeQueryResultsMs.length > 10) timeQueryResultsMs.shift();
-          timeQueryResultsMs.push(nanoseconds / 1000000);
-          lastTimeQueryTime = performance.now();
-          queryBuffer.unmap();
-          queryBuffers.push(queryBuffer);
-        });
-      }
+      device.queue.submit([commandEncoder.finish()]);
     } catch(e) {
       if (!errorMessage.textContent) errorMessage.textContent = "Error: " + e;
       throw e;
@@ -1174,12 +1136,7 @@ function countFps(name, mouseEventsThisFrame) {
   }
 
   if (showFps.checked) {
-    if (performance.now() - lastTimeQueryTime < 1000 && timeQueryResultsMs.length) {
-      const averageTime = timeQueryResultsMs.reduce((x, y) => x + y) / timeQueryResultsMs.length;
-      fpsSpan.textContent = `${counters['render'].fps.toFixed()}, ${averageTime.toFixed(1)} ms GPU time`;
-    } else {
-      fpsSpan.textContent = counters['render'].fps.toFixed();
-    }
+    fpsSpan.textContent = counters['render'].fps.toFixed();
     if (showStats.checked) {
       let text = "";
       for (let key in counters) {

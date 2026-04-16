@@ -1,6 +1,6 @@
 import { mat4, mat3 } from 'wgpu-matrix';
 import { modelData } from './models';
-import { quitIfWebGPUNotAvailable } from '../util';
+import { quitIfWebGPUNotAvailableOrMissingFeatures } from '../util';
 
 type TypedArrayView = Float32Array | Uint32Array;
 
@@ -46,9 +46,11 @@ function createVertexAndIndexBuffer(
   };
 }
 
-const adapter = await navigator.gpu?.requestAdapter();
+const adapter = await navigator.gpu?.requestAdapter({
+  featureLevel: 'compatibility',
+});
 const device = await adapter?.requestDevice();
-quitIfWebGPUNotAvailable(adapter, device);
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
 const models = Object.values(modelData).map((data) =>
   createVertexAndIndexBuffer(device, data)
@@ -245,7 +247,7 @@ for (let i = 0; i < numProducts; ++i) {
   // Make a bind group for this uniform
   const bindGroup = device.createBindGroup({
     layout: pipeline.getBindGroupLayout(0),
-    entries: [{ binding: 0, resource: { buffer: uniformBuffer } }],
+    entries: [{ binding: 0, resource: uniformBuffer }],
   });
 
   canvasToInfoMap.set(canvas, {

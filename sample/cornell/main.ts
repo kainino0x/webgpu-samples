@@ -5,25 +5,40 @@ import Radiosity from './radiosity';
 import Rasterizer from './rasterizer';
 import Tonemapper from './tonemapper';
 import Raytracer from './raytracer';
-import { quitIfAdapterNotAvailable, quitIfWebGPUNotAvailable } from '../util';
+import {
+  quitIfAdapterNotAvailable,
+  quitIfWebGPUNotAvailableOrMissingFeatures,
+  quitIfLimitLessThan,
+} from '../util';
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
 
-const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
-const requiredFeatures: GPUFeatureName[] =
-  presentationFormat === 'bgra8unorm' ? ['bgra8unorm-storage'] : [];
-const adapter = await navigator.gpu?.requestAdapter();
+const adapter = await navigator.gpu?.requestAdapter({
+  featureLevel: 'compatibility',
+});
 quitIfAdapterNotAvailable(adapter);
 
-for (const feature of requiredFeatures) {
-  if (!adapter.features.has(feature)) {
-    throw new Error(
-      `sample requires ${feature}, but is not supported by the adapter`
-    );
+const features: GPUFeatureName[] = [];
+let presentationFormat = navigator.gpu.getPreferredCanvasFormat();
+if (presentationFormat == 'bgra8unorm') {
+  if (adapter.features.has('bgra8unorm-storage')) {
+    features.push('bgra8unorm-storage');
+  } else {
+    // If the GPU prefers BGRA for presentation but the Adapter
+    // doesn't support bgra8unorm-storage (e.g., Compatibility
+    // mode), use rgba8unorm for both. This will be slower, but will
+    // work.
+    presentationFormat = 'rgba8unorm';
   }
 }
-const device = await adapter?.requestDevice({ requiredFeatures });
-quitIfWebGPUNotAvailable(adapter, device);
+const limits: Record<string, GPUSize32> = {};
+quitIfLimitLessThan(adapter, 'maxComputeWorkgroupSizeX', 256, limits);
+quitIfLimitLessThan(adapter, 'maxComputeInvocationsPerWorkgroup', 256, limits);
+const device = await adapter?.requestDevice({
+  requiredFeatures: features,
+  requiredLimits: limits,
+});
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
 const params: {
   renderer: 'rasterizer' | 'raytracer';
@@ -41,7 +56,7 @@ const devicePixelRatio = window.devicePixelRatio;
 canvas.width = canvas.clientWidth * devicePixelRatio;
 canvas.height = canvas.clientHeight * devicePixelRatio;
 
-const context = canvas.getContext('webgpu') as GPUCanvasContext;
+const context = canvas.getContext('webgpu');
 context.configure({
   device,
   format: presentationFormat,

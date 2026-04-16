@@ -1,9 +1,9 @@
-import { mat4, vec3 } from 'wgpu-matrix';
+import { mat4 } from 'wgpu-matrix';
 import { GUI } from 'dat.gui';
 
 import particleWGSL from './particle.wgsl';
 import probabilityMapWGSL from './probabilityMap.wgsl';
-import { quitIfWebGPUNotAvailable } from '../util';
+import { quitIfWebGPUNotAvailableOrMissingFeatures } from '../util';
 
 const numParticles = 50000;
 const particlePositionOffset = 0;
@@ -17,11 +17,13 @@ const particleInstanceByteSize =
   0;
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-const adapter = await navigator.gpu?.requestAdapter();
+const adapter = await navigator.gpu?.requestAdapter({
+  featureLevel: 'compatibility',
+});
 const device = await adapter?.requestDevice();
-quitIfWebGPUNotAvailable(adapter, device);
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
-const context = canvas.getContext('webgpu') as GPUCanvasContext;
+const context = canvas.getContext('webgpu');
 
 const devicePixelRatio = window.devicePixelRatio;
 canvas.width = canvas.clientWidth * devicePixelRatio;
@@ -136,14 +138,7 @@ const uniformBuffer = device.createBuffer({
 
 const uniformBindGroup = device.createBindGroup({
   layout: renderPipeline.getBindGroupLayout(0),
-  entries: [
-    {
-      binding: 0,
-      resource: {
-        buffer: uniformBuffer,
-      },
-    },
-  ],
+  entries: [{ binding: 0, resource: uniformBuffer }],
 });
 
 const renderPassDescriptor: GPURenderPassDescriptor = {
@@ -182,39 +177,30 @@ quadVertexBuffer.unmap();
 //////////////////////////////////////////////////////////////////////////////
 // Texture
 //////////////////////////////////////////////////////////////////////////////
-let texture: GPUTexture;
-let textureWidth = 1;
-let textureHeight = 1;
-let numMipLevels = 1;
-{
-  const response = await fetch('../../assets/img/webgpu.png');
-  const imageBitmap = await createImageBitmap(await response.blob());
+const isPowerOf2 = (v: number) => Math.log2(v) % 1 === 0;
+const response = await fetch('../../assets/img/webgpu.png');
+const imageBitmap = await createImageBitmap(await response.blob());
+assert(imageBitmap.width === imageBitmap.height, 'image must be square');
+assert(isPowerOf2(imageBitmap.width), 'image must be a power of 2');
 
-  // Calculate number of mip levels required to generate the probability map
-  while (
-    textureWidth < imageBitmap.width ||
-    textureHeight < imageBitmap.height
-  ) {
-    textureWidth *= 2;
-    textureHeight *= 2;
-    numMipLevels++;
-  }
-  texture = device.createTexture({
-    size: [imageBitmap.width, imageBitmap.height, 1],
-    mipLevelCount: numMipLevels,
-    format: 'rgba8unorm',
-    usage:
-      GPUTextureUsage.TEXTURE_BINDING |
-      GPUTextureUsage.STORAGE_BINDING |
-      GPUTextureUsage.COPY_DST |
-      GPUTextureUsage.RENDER_ATTACHMENT,
-  });
-  device.queue.copyExternalImageToTexture(
-    { source: imageBitmap },
-    { texture: texture },
-    [imageBitmap.width, imageBitmap.height]
-  );
-}
+// Calculate number of mip levels required to generate the probability map
+const mipLevelCount =
+  (Math.log2(Math.max(imageBitmap.width, imageBitmap.height)) + 1) | 0;
+const texture = device.createTexture({
+  size: [imageBitmap.width, imageBitmap.height, 1],
+  mipLevelCount,
+  format: 'rgba8unorm',
+  usage:
+    GPUTextureUsage.TEXTURE_BINDING |
+    GPUTextureUsage.STORAGE_BINDING |
+    GPUTextureUsage.COPY_DST |
+    GPUTextureUsage.RENDER_ATTACHMENT,
+});
+device.queue.copyExternalImageToTexture(
+  { source: imageBitmap },
+  { texture: texture },
+  [imageBitmap.width, imageBitmap.height]
+);
 
 //////////////////////////////////////////////////////////////////////////////
 // Probability map generation
@@ -247,22 +233,22 @@ let numMipLevels = 1;
     usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
   });
   const buffer_a = device.createBuffer({
-    size: textureWidth * textureHeight * 4,
+    size: texture.width * texture.height * 4,
     usage: GPUBufferUsage.STORAGE,
   });
   const buffer_b = device.createBuffer({
-    size: textureWidth * textureHeight * 4,
+    size: buffer_a.size,
     usage: GPUBufferUsage.STORAGE,
   });
   device.queue.writeBuffer(
     probabilityMapUBOBuffer,
     0,
-    new Int32Array([textureWidth])
+    new Uint32Array([texture.width])
   );
   const commandEncoder = device.createCommandEncoder();
-  for (let level = 0; level < numMipLevels; level++) {
-    const levelWidth = textureWidth >> level;
-    const levelHeight = textureHeight >> level;
+  for (let level = 0; level < texture.mipLevelCount; level++) {
+    const levelWidth = Math.max(1, texture.width >> level);
+    const levelHeight = Math.max(1, texture.height >> level);
     const pipeline =
       level == 0
         ? probabilityMapImportLevelPipeline.getBindGroupLayout(0)
@@ -273,17 +259,17 @@ let numMipLevels = 1;
         {
           // ubo
           binding: 0,
-          resource: { buffer: probabilityMapUBOBuffer },
+          resource: probabilityMapUBOBuffer,
         },
         {
           // buf_in
           binding: 1,
-          resource: { buffer: level & 1 ? buffer_a : buffer_b },
+          resource: level & 1 ? buffer_a : buffer_b,
         },
         {
           // buf_out
           binding: 2,
-          resource: { buffer: level & 1 ? buffer_b : buffer_a },
+          resource: level & 1 ? buffer_b : buffer_a,
         },
         {
           // tex_in / tex_out
@@ -327,7 +313,7 @@ const simulationParams = {
 const simulationUBOBufferSize =
   1 * 4 + // deltaTime
   1 * 4 + // brightnessFactor
-  3 * 4 + // padding
+  2 * 4 + // padding
   4 * 4 + // seed
   0;
 const simulationUBOBuffer = device.createBuffer({
@@ -355,7 +341,7 @@ function getHdrFolderName() {
   }
   if (
     simulationParams.toneMappingMode === 'extended' &&
-    context.getConfiguration().toneMapping.mode !== 'extended'
+    context.getConfiguration().toneMapping?.mode !== 'extended'
   ) {
     return "HDR settings ⚠️ Browser doesn't support HDR canvas";
   }
@@ -377,24 +363,9 @@ const computePipeline = device.createComputePipeline({
 const computeBindGroup = device.createBindGroup({
   layout: computePipeline.getBindGroupLayout(0),
   entries: [
-    {
-      binding: 0,
-      resource: {
-        buffer: simulationUBOBuffer,
-      },
-    },
-    {
-      binding: 1,
-      resource: {
-        buffer: particlesBuffer,
-        offset: 0,
-        size: numParticles * particleInstanceByteSize,
-      },
-    },
-    {
-      binding: 2,
-      resource: texture.createView(),
-    },
+    { binding: 0, resource: simulationUBOBuffer },
+    { binding: 1, resource: particlesBuffer },
+    { binding: 2, resource: texture.createView() },
   ],
 });
 
@@ -404,24 +375,20 @@ const view = mat4.create();
 const mvp = mat4.create();
 
 function frame() {
-  device.queue.writeBuffer(
-    simulationUBOBuffer,
-    0,
-    new Float32Array([
-      simulationParams.simulate ? simulationParams.deltaTime : 0.0,
-      simulationParams.brightnessFactor,
-      0.0,
-      0.0,
-      0.0, // padding
-      Math.random() * 100,
-      Math.random() * 100, // seed.xy
-      1 + Math.random(),
-      1 + Math.random(), // seed.zw
-    ])
-  );
+  const uboDataF32 = new Float32Array(simulationUBOBuffer.size / 4);
+  const uboDataU32 = new Uint32Array(uboDataF32);
+  uboDataF32[0] = simulationParams.simulate ? simulationParams.deltaTime : 0.0;
+  uboDataF32[1] = simulationParams.brightnessFactor;
+  // [2] [3] are alignment padding
+  uboDataU32[4] = 0xffffffff * Math.random(); // seed.x
+  uboDataU32[5] = 0xffffffff * Math.random(); // seed.y
+  uboDataU32[6] = 0xffffffff * Math.random(); // seed.z
+  uboDataU32[7] = 0xffffffff * Math.random(); // seed.w
+
+  device.queue.writeBuffer(simulationUBOBuffer, 0, uboDataF32);
 
   mat4.identity(view);
-  mat4.translate(view, vec3.fromValues(0, 0, -3), view);
+  mat4.translate(view, [0, 0, -3], view);
   mat4.rotateX(view, Math.PI * -0.2, view);
   mat4.multiply(projection, view, mvp);
 
@@ -473,3 +440,9 @@ function frame() {
 }
 configureContext();
 requestAnimationFrame(frame);
+
+function assert(cond: boolean, msg = '') {
+  if (!cond) {
+    throw new Error(msg);
+  }
+}

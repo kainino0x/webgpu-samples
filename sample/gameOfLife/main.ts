@@ -2,14 +2,16 @@ import { GUI } from 'dat.gui';
 import computeWGSL from './compute.wgsl';
 import vertWGSL from './vert.wgsl';
 import fragWGSL from './frag.wgsl';
-import { quitIfWebGPUNotAvailable } from '../util';
+import { quitIfWebGPUNotAvailableOrMissingFeatures } from '../util';
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-const adapter = await navigator.gpu?.requestAdapter();
+const adapter = await navigator.gpu?.requestAdapter({
+  featureLevel: 'compatibility',
+});
 const device = await adapter?.requestDevice();
-quitIfWebGPUNotAvailable(adapter, device);
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
-const context = canvas.getContext('webgpu') as GPUCanvasContext;
+const context = canvas.getContext('webgpu');
 const devicePixelRatio = window.devicePixelRatio;
 canvas.width = canvas.clientWidth * devicePixelRatio;
 canvas.height = canvas.clientHeight * devicePixelRatio;
@@ -167,18 +169,18 @@ function resetGameData() {
   const bindGroup0 = device.createBindGroup({
     layout: bindGroupLayoutCompute,
     entries: [
-      { binding: 0, resource: { buffer: sizeBuffer } },
-      { binding: 1, resource: { buffer: buffer0 } },
-      { binding: 2, resource: { buffer: buffer1 } },
+      { binding: 0, resource: sizeBuffer },
+      { binding: 1, resource: buffer0 },
+      { binding: 2, resource: buffer1 },
     ],
   });
 
   const bindGroup1 = device.createBindGroup({
     layout: bindGroupLayoutCompute,
     entries: [
-      { binding: 0, resource: { buffer: sizeBuffer } },
-      { binding: 1, resource: { buffer: buffer1 } },
-      { binding: 2, resource: { buffer: buffer0 } },
+      { binding: 0, resource: sizeBuffer },
+      { binding: 1, resource: buffer1 },
+      { binding: 2, resource: buffer0 },
     ],
   });
 
@@ -208,11 +210,7 @@ function resetGameData() {
     entries: [
       {
         binding: 0,
-        resource: {
-          buffer: sizeBuffer,
-          offset: 0,
-          size: 2 * Uint32Array.BYTES_PER_ELEMENT,
-        },
+        resource: sizeBuffer,
       },
     ],
   });

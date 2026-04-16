@@ -1,4 +1,4 @@
-import { mat4, vec3 } from 'wgpu-matrix';
+import { mat4 } from 'wgpu-matrix';
 
 import {
   cubeVertexArray,
@@ -10,7 +10,7 @@ import {
 
 import basicVertWGSL from '../../shaders/basic.vert.wgsl';
 import vertexPositionColorWGSL from '../../shaders/vertexPositionColor.frag.wgsl';
-import { quitIfWebGPUNotAvailable } from '../util';
+import { quitIfWebGPUNotAvailableOrMissingFeatures } from '../util';
 
 // The worker process can instantiate a WebGPU device immediately, but it still needs an
 // OffscreenCanvas to be able to display anything. Here we listen for an 'init' message from the
@@ -35,9 +35,11 @@ self.addEventListener('message', (ev) => {
 // to the init() method for all the other samples. The remainder of this file is largely identical
 // to the rotatingCube sample.
 async function init(canvas) {
-  const adapter = await navigator.gpu?.requestAdapter();
+  const adapter = await navigator.gpu?.requestAdapter({
+    featureLevel: 'compatibility',
+  });
   const device = await adapter?.requestDevice();
-  quitIfWebGPUNotAvailable(adapter, device);
+  quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
   const context = canvas.getContext('webgpu');
 
   const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
@@ -124,14 +126,7 @@ async function init(canvas) {
 
   const uniformBindGroup = device.createBindGroup({
     layout: pipeline.getBindGroupLayout(0),
-    entries: [
-      {
-        binding: 0,
-        resource: {
-          buffer: uniformBuffer,
-        },
-      },
-    ],
+    entries: [{ binding: 0, resource: uniformBuffer }],
   });
 
   const renderPassDescriptor: GPURenderPassDescriptor = {
@@ -164,14 +159,9 @@ async function init(canvas) {
 
   function getTransformationMatrix() {
     const viewMatrix = mat4.identity();
-    mat4.translate(viewMatrix, vec3.fromValues(0, 0, -4), viewMatrix);
+    mat4.translate(viewMatrix, [0, 0, -4], viewMatrix);
     const now = Date.now() / 1000;
-    mat4.rotate(
-      viewMatrix,
-      vec3.fromValues(Math.sin(now), Math.cos(now), 0),
-      1,
-      viewMatrix
-    );
+    mat4.rotate(viewMatrix, [Math.sin(now), Math.cos(now), 0], 1, viewMatrix);
 
     mat4.multiply(projectionMatrix, viewMatrix, modelViewProjectionMatrix);
 

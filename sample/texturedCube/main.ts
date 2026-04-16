@@ -1,4 +1,4 @@
-import { mat4, vec3 } from 'wgpu-matrix';
+import { mat4 } from 'wgpu-matrix';
 
 import {
   cubeVertexArray,
@@ -10,14 +10,16 @@ import {
 
 import basicVertWGSL from '../../shaders/basic.vert.wgsl';
 import sampleTextureMixColorWGSL from './sampleTextureMixColor.frag.wgsl';
-import { quitIfWebGPUNotAvailable } from '../util';
+import { quitIfWebGPUNotAvailableOrMissingFeatures } from '../util';
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-const adapter = await navigator.gpu?.requestAdapter();
+const adapter = await navigator.gpu?.requestAdapter({
+  featureLevel: 'compatibility',
+});
 const device = await adapter?.requestDevice();
-quitIfWebGPUNotAvailable(adapter, device);
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
-const context = canvas.getContext('webgpu') as GPUCanvasContext;
+const context = canvas.getContext('webgpu');
 
 const devicePixelRatio = window.devicePixelRatio;
 canvas.width = canvas.clientWidth * devicePixelRatio;
@@ -134,20 +136,9 @@ const sampler = device.createSampler({
 const uniformBindGroup = device.createBindGroup({
   layout: pipeline.getBindGroupLayout(0),
   entries: [
-    {
-      binding: 0,
-      resource: {
-        buffer: uniformBuffer,
-      },
-    },
-    {
-      binding: 1,
-      resource: sampler,
-    },
-    {
-      binding: 2,
-      resource: cubeTexture.createView(),
-    },
+    { binding: 0, resource: uniformBuffer },
+    { binding: 1, resource: sampler },
+    { binding: 2, resource: cubeTexture.createView() },
   ],
 });
 
@@ -176,14 +167,9 @@ const modelViewProjectionMatrix = mat4.create();
 
 function getTransformationMatrix() {
   const viewMatrix = mat4.identity();
-  mat4.translate(viewMatrix, vec3.fromValues(0, 0, -4), viewMatrix);
+  mat4.translate(viewMatrix, [0, 0, -4], viewMatrix);
   const now = Date.now() / 1000;
-  mat4.rotate(
-    viewMatrix,
-    vec3.fromValues(Math.sin(now), Math.cos(now), 0),
-    1,
-    viewMatrix
-  );
+  mat4.rotate(viewMatrix, [Math.sin(now), Math.cos(now), 0], 1, viewMatrix);
 
   mat4.multiply(projectionMatrix, viewMatrix, modelViewProjectionMatrix);
 

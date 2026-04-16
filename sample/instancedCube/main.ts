@@ -1,4 +1,4 @@
-import { mat4, Mat4, vec3 } from 'wgpu-matrix';
+import { mat4, Mat4 } from 'wgpu-matrix';
 
 import {
   cubeVertexArray,
@@ -10,14 +10,16 @@ import {
 
 import instancedVertWGSL from './instanced.vert.wgsl';
 import vertexPositionColorWGSL from '../../shaders/vertexPositionColor.frag.wgsl';
-import { quitIfWebGPUNotAvailable } from '../util';
+import { quitIfWebGPUNotAvailableOrMissingFeatures } from '../util';
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-const adapter = await navigator.gpu?.requestAdapter();
+const adapter = await navigator.gpu?.requestAdapter({
+  featureLevel: 'compatibility',
+});
 const device = await adapter?.requestDevice();
-quitIfWebGPUNotAvailable(adapter, device);
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
-const context = canvas.getContext('webgpu') as GPUCanvasContext;
+const context = canvas.getContext('webgpu');
 
 const devicePixelRatio = window.devicePixelRatio;
 canvas.width = canvas.clientWidth * devicePixelRatio;
@@ -114,14 +116,7 @@ const uniformBuffer = device.createBuffer({
 
 const uniformBindGroup = device.createBindGroup({
   layout: pipeline.getBindGroupLayout(0),
-  entries: [
-    {
-      binding: 0,
-      resource: {
-        buffer: uniformBuffer,
-      },
-    },
-  ],
+  entries: [{ binding: 0, resource: uniformBuffer }],
 });
 
 const aspect = canvas.width / canvas.height;
@@ -136,18 +131,16 @@ const step = 4.0;
 let m = 0;
 for (let x = 0; x < xCount; x++) {
   for (let y = 0; y < yCount; y++) {
-    modelMatrices[m] = mat4.translation(
-      vec3.fromValues(
-        step * (x - xCount / 2 + 0.5),
-        step * (y - yCount / 2 + 0.5),
-        0
-      )
-    );
+    modelMatrices[m] = mat4.translation([
+      step * (x - xCount / 2 + 0.5),
+      step * (y - yCount / 2 + 0.5),
+      0,
+    ]);
     m++;
   }
 }
 
-const viewMatrix = mat4.translation(vec3.fromValues(0, 0, -12));
+const viewMatrix = mat4.translation([0, 0, -12]);
 
 const tmpMat4 = mat4.create();
 
@@ -161,11 +154,7 @@ function updateTransformationMatrix() {
     for (let y = 0; y < yCount; y++) {
       mat4.rotate(
         modelMatrices[i],
-        vec3.fromValues(
-          Math.sin((x + 0.5) * now),
-          Math.cos((y + 0.5) * now),
-          0
-        ),
+        [Math.sin((x + 0.5) * now), Math.cos((y + 0.5) * now), 0],
         1,
         tmpMat4
       );

@@ -3,7 +3,10 @@ import { GUI } from 'dat.gui';
 
 import texturedSquareWGSL from './texturedSquare.wgsl';
 import showTextureWGSL from './showTexture.wgsl';
-import { quitIfWebGPUNotAvailable } from '../util';
+import {
+  quitIfWebGPUNotAvailableOrMissingFeatures,
+  quitIfLimitLessThan,
+} from '../util';
 
 const kMatrices: Readonly<Float32Array> = new Float32Array([
   // Row 1: Scale by 2
@@ -28,9 +31,15 @@ const kMatrices: Readonly<Float32Array> = new Float32Array([
 ]);
 
 const canvas = document.querySelector('canvas') as HTMLCanvasElement;
-const adapter = await navigator.gpu?.requestAdapter();
-const device = await adapter?.requestDevice();
-quitIfWebGPUNotAvailable(adapter, device);
+const adapter = await navigator.gpu?.requestAdapter({
+  featureLevel: 'compatibility',
+});
+const limits: Record<string, GPUSize32> = {};
+quitIfLimitLessThan(adapter, 'maxStorageBuffersInVertexStage', 1, limits);
+const device = await adapter?.requestDevice({
+  requiredLimits: limits,
+});
+quitIfWebGPUNotAvailableOrMissingFeatures(adapter, device);
 
 //
 // GUI controls
@@ -170,7 +179,7 @@ canvas.width = canvas.height = kCanvasSize;
 canvas.style.minWidth = canvas.style.maxWidth = kCanvasCSSSize + 'px';
 const presentationFormat = navigator.gpu.getPreferredCanvasFormat();
 
-const context = canvas.getContext('webgpu') as GPUCanvasContext;
+const context = canvas.getContext('webgpu');
 context.configure({
   device,
   format: presentationFormat,
@@ -303,8 +312,8 @@ function frame() {
   const bindGroup = device.createBindGroup({
     layout: texturedSquareBGL,
     entries: [
-      { binding: 0, resource: { buffer: bufConfig } },
-      { binding: 1, resource: { buffer: bufMatrices } },
+      { binding: 0, resource: bufConfig },
+      { binding: 1, resource: bufMatrices },
       { binding: 2, resource: sampler },
       { binding: 3, resource: checkerboardView },
     ],
