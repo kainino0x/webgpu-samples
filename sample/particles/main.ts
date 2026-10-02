@@ -187,11 +187,11 @@ quadVertexBuffer.unmap();
 //////////////////////////////////////////////////////////////////////////////
 // Texture
 //////////////////////////////////////////////////////////////////////////////
-const isPowerOf2 = (v: number) => Math.log2(v) % 1 === 0;
-const response = await fetch('../../assets/img/webgpu.png');
+//const isPowerOf2 = (v: number) => Math.log2(v) % 1 === 0;
+const response = await fetch('../../assets/img/Webkit-logo-P3.png');
 const imageBitmap = await createImageBitmap(await response.blob());
 assert(imageBitmap.width === imageBitmap.height, 'image must be square');
-assert(isPowerOf2(imageBitmap.width), 'image must be a power of 2');
+//assert(isPowerOf2(imageBitmap.width), 'image must be a power of 2');
 
 // Calculate number of mip levels required to generate the probability map
 const mipLevelCount =
