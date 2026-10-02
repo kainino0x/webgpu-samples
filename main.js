@@ -375,13 +375,20 @@ var particleLife = {
 var particles = {
     name: 'Particles (HDR)',
     tocName: 'particles (HDR)',
-    description: 'This example demonstrates rendering of particles (using HDR capabilities when possible) simulated with compute shaders.',
+    description: 'This example demonstrates rendering of particles simulated with compute shaders, using HDR and wide color gamut canvas capabilities when possible.',
     filename: "sample/particles",
     sources: [
         { path: 'main.ts' },
         { path: './particle.wgsl' },
         { path: './probabilityMap.wgsl' },
     ],
+};
+
+var packedIntegerDotProduct = {
+    name: 'Packed Integer Dot Product',
+    description: 'Packs four signed 8-bit integers into each u32, computes their dot product with dot4I8Packed, and reads back the results.',
+    filename: "sample/packedIntegerDotProduct",
+    sources: [{ path: 'main.ts' }, { path: 'packed.wgsl' }],
 };
 
 var points = {
@@ -658,6 +665,17 @@ lake by [Fabio Casati](https://commons.wikimedia.org/wiki/File:Video_360%C2%B0._
     ],
 };
 
+var visionTransformer = {
+    name: 'Vision Transformer',
+    description: `Runs DeiT-Tiny Vision Transformer inference in WebGPU compute shaders and visualizes attention maps as interactive heatmap overlays.`,
+    filename: "sample/visionTransformer",
+    external: {
+        url: 'https://lyonsno.github.io/webgpu-vit-attention/',
+        sourceURL: 'https://github.com/lyonsno/webgpu-vit-attention',
+    },
+    sources: [],
+};
+
 var volumeRenderingTexture3D = {
     name: 'Volume Rendering - Texture 3D',
     description: `This example shows how to render volumes with WebGPU using a 3D
@@ -675,6 +693,17 @@ before processing in
     sources: [{ path: 'main.ts' }, { path: 'volume.wgsl' }],
 };
 
+var webgpuAquarium = {
+    name: 'WebGPU Aquarium',
+    description: `A WebGPU based under water ocean simulation.`,
+    filename: "sample/webgpuAquarium",
+    external: {
+        url: 'https://greggman.github.io/webgpu-aquarium/',
+        sourceURL: 'https://github.com/greggman/webgpu-aquarium',
+    },
+    sources: [],
+};
+
 var wireframe = {
     name: 'Wireframe',
     description: `
@@ -689,6 +718,7 @@ var wireframe = {
     sources: [
         { path: 'main.ts' },
         { path: 'wireframe.wgsl' },
+        { path: 'wireframeBufferView.wgsl' },
         { path: 'solidColorLit.wgsl' },
         { path: 'models.ts' },
         { path: '../../meshes/box.ts' },
@@ -764,6 +794,7 @@ const pageCategories = [
             computeBoids,
             gameOfLife,
             bitonicSort,
+            packedIntegerDotProduct,
         },
     },
     // A selection of samples demonstrating various graphics techniques, utilizing various features
@@ -818,6 +849,8 @@ const pageCategories = [
             marchingCubes,
             alphaToCoverageEmulator,
             particleLife,
+            visionTransformer,
+            webgpuAquarium,
         },
     },
     // Samples whose primary purpose is to benchmark WebGPU performance.
